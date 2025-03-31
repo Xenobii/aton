@@ -67,6 +67,15 @@ HATHOR.setup = ()=>{
 
     HATHOR._bSidePanel = false;
 
+    let paramVRC = ATON.FE.urlParams.get('vrc');
+    if (paramVRC) {
+        console.log("vrc enabled");
+        ATON.FE.uiAddButtonVRC("idTopToolbar");
+        ATON.on("VRC_IDassigned", (uid)=>{
+            console.log("Great! Photon service assigned me ID: "+uid);
+        });
+    };
+
 /*
     //if (HATHOR.paramEdit) ATON.SceneHub.setEditMode(HATHOR.paramEdit);
     //else ATON.SceneHub.setEditMode(false);
