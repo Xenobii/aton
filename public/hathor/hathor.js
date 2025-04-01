@@ -67,15 +67,6 @@ HATHOR.setup = ()=>{
 
     HATHOR._bSidePanel = false;
 
-    let paramVRC = ATON.FE.urlParams.get('vrc');
-    if (paramVRC) {
-        console.log("vrc enabled");
-        ATON.FE.uiAddButtonVRC("idTopToolbar");
-        ATON.on("VRC_IDassigned", (uid)=>{
-            console.log("Great! Photon service assigned me ID: "+uid);
-        });
-    };
-
 /*
     //if (HATHOR.paramEdit) ATON.SceneHub.setEditMode(HATHOR.paramEdit);
     //else ATON.SceneHub.setEditMode(false);
@@ -410,7 +401,7 @@ HATHOR.buildUIProfiles = ()=>{
     });
 
     // Collaborate
-/*
+
     ATON.FE.uiAddProfile("collaborate", ()=>{
         $("#idTopToolbar").html(""); // clear
         if (HATHOR.paramBack) ATON.FE.uiAddButtonBack("idTopToolbar");
@@ -425,18 +416,68 @@ HATHOR.buildUIProfiles = ()=>{
             ATON.FE.popupSelector();
         }, "3D Selector options");
         ATON.FE.uiAddButtonStreamFocus("idTopToolbar");
-
+        
         ATON.FE.uiAddButton("idTopToolbar", "list", ()=>{
             HATHOR.popupGraphs();
         }, "Layers / Graphs");
         
-        //HATHOR.uiAddBaseSem();
+        HATHOR.uiAddBaseSem();
 
-        //if (HATHOR.paramSID) ATON.Photon.connect();
-        //HATHOR.paramVRC = "1";
+        if (HATHOR.paramSID) ATON.Photon.connect();
+        HATHOR.paramVRC = "1";
         HATHOR._bVRCreq = true;
     });
-*/
+
+    // Collaborative editing
+
+    ATON.FE.uiAddProfile("collaborative annotator", ()=>{
+        $("#idTopToolbar").html(""); // clear
+        if (HATHOR.paramBack) ATON.FE.uiAddButtonBack("idTopToolbar");
+
+        ATON.FE.uiSetEditMode(false, "idTopToolbar");
+
+        HATHOR.uiBase();
+
+        ATON.FE.checkAuth((r)=>{
+            let authUser   = r.username;
+
+            // In order to allow editing, must be authenticated
+            if (!authUser) return;
+
+            ATON.FE.uiSetEditMode(true, "idTopToolbar");
+
+            ATON.FE.uiAddButtonEditMode("idTopToolbar");
+            ATON.FE.uiAddButton("idTopToolbar", "scene", HATHOR.popupScene, "Scene" );
+            ATON.FE.uiAddButton("idTopToolbar","light", HATHOR.popupEnvironment, "Environment");
+            ATON.FE.uiAddButton("idTopToolbar", "list", HATHOR.popupGraphs, "Scene Layers");
+    
+            // ATON.FE.uiAddButton("idTopToolbar", "selector", ()=>{
+            //     ATON.FE.popupSelector();
+            // }, "3D Selector");
+    
+            HATHOR.uiAddButtonMeasure("idTopToolbar");
+            HATHOR.uiAddBaseSem();
+            
+            ATON.FE.uiAddButtonVRC("idTopToolbar");
+            // ATON.FE.uiAddButtonUser("idTopToolbar");
+
+            ATON.FE.uiAddButton("idTopToolbar", "selector", ()=>{
+                ATON.FE.popupSelector();
+            }, "3D Selector options");
+            ATON.FE.uiAddButtonStreamFocus("idTopToolbar");
+            
+            ATON.FE.uiAddButton("idTopToolbar", "list", ()=>{
+                HATHOR.popupGraphs();
+            }, "Layers / Graphs");
+
+            if (HATHOR.paramSID) ATON.Photon.connect();
+            HATHOR.paramVRC = "1";
+            HATHOR._bVRCreq = true;
+        })
+
+        
+    });
+
 };
 
 
