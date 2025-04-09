@@ -21,6 +21,7 @@ HATHOR.SELACTION_STD            = 0;
 HATHOR.SELACTION_ADDSPHERESHAPE = 1;
 HATHOR.SELACTION_ADDCONVEXPOINT = 2;
 HATHOR.SELACTION_MEASURE        = 3;
+HATHOR.SELACTION_BRUSH          = 4; //NEW
 
 
 // Set SceneID to load
@@ -149,10 +150,12 @@ HATHOR.resetSelectionMode = ()=>{
     HATHOR._actState = HATHOR.SELACTION_STD;
     $("#btn-ann-convex").removeClass("atonBTN-rec");
     $("#btn-ann-sphere").removeClass("atonBTN-rec");
+    $("#btn-ann-brush").removeClass("atonBTN-rec");
     $("#btn-measure").removeClass("atonBTN-rec");
 
     ATON.getUINode("sui_measure").switch(false);
     ATON.getUINode("sui_annconvex").switch(false);
+    ATON.getUINode("sui_brush").switch(false);
 
     ATON.Nav.setUserControl(true);
     return;
@@ -170,12 +173,14 @@ HATHOR.setSelectionMode = (m)=>{
         $("#btn-ann-sphere").addClass("atonBTN-rec");
         $("#btn-ann-convex").removeClass("atonBTN-rec");
         $("#btn-measure").removeClass("atonBTN-rec");
+        $("#btn-ann-brush").removeClass("atonBTN-rec");
     }
 
     if (m === HATHOR.SELACTION_ADDCONVEXPOINT){
         $("#btn-ann-convex").addClass("atonBTN-rec");
         $("#btn-ann-sphere").removeClass("atonBTN-rec");
         $("#btn-measure").removeClass("atonBTN-rec");
+        $("#btn-ann-brush").removeClass("atonBTN-rec");
         
         ATON.getUINode("sui_annconvex").switch(true);
     }
@@ -184,8 +189,20 @@ HATHOR.setSelectionMode = (m)=>{
         $("#btn-measure").addClass("atonBTN-rec");
         $("#btn-ann-sphere").removeClass("atonBTN-rec");
         $("#btn-ann-convex").removeClass("atonBTN-rec");
+        $("#btn-ann-brush").removeClass("atonBTN-rec");
         
         ATON.getUINode("sui_measure").switch(true);
+    }
+
+    // MORE ANNOTATION EDITS
+
+    if (m === HATHOR.SELACTION_BRUSH){
+        $("#btn-ann-brush").addClass("atonBTN-rec");
+        $("#btn-ann-sphere").removeClass("atonBTN-rec");
+        $("#btn-ann-convex").removeClass("atonBTN-rec");
+        $("#btn-measure").removeClass("atonBTN-rec");
+        
+        ATON.getUINode("sui_brush").switch(true);
     }
 };
 
@@ -223,6 +240,21 @@ HATHOR.uiAddButtonAnnConvex = (idcontainer)=>{
     }, "Annotate using convex shape");
 };
 
+// ANNOTATION ADDITIONS
+HATHOR.uiAddButtonAnnBrush = (idcontainer)=>{
+    ATON.FE.uiAddButton(idcontainer, "ann-brush", ()=>{
+    if (HATHOR._actState !== HATHOR.SELACTION_BRUSH){
+        HATHOR.setSelectionMode(HATHOR.SELACTION_BRUSH);
+        ATON.Nav.setUserControl(false); // Temporarily make it like Art3mis
+        $("#btn-cancel").show();
+        }
+        else {
+            HATHOR.resetSelectionMode();
+            HATHOR.popupAddSemantic(ATON.FE.SEMSHAPE_BRUSH);
+        }
+    }, "Annotate faces using brush");
+};
+
 HATHOR.uiAddButtonTaskCancel = (idcontainer)=>{
     ATON.FE.uiAddButton(idcontainer, "cancel", ()=>{
         HATHOR.cancelCurrentTask();
@@ -248,6 +280,7 @@ HATHOR.uiBase = ()=>{
 HATHOR.uiAddBaseSem = ()=>{
     HATHOR.uiAddButtonAnnSphere("idTopToolbar");
     HATHOR.uiAddButtonAnnConvex("idTopToolbar");
+    HATHOR.uiAddButtonAnnBrush("idTopTollbar");
     HATHOR.uiAddButtonTaskCancel("idTopToolbar");
 };
 
@@ -532,6 +565,7 @@ HATHOR.suiSetup = ()=>{
     buttons.push( new ATON.SUI.Button("sui_povnext") );
     buttons.push( new ATON.SUI.Button("sui_uscale") );
     buttons.push( new ATON.SUI.Button("sui_exitxr") );
+    buttons.push( new ATON.SUI.Button("sui_brush") );
 
     let btnAnnConvex = ATON.getUINode("sui_annconvex");
     btnAnnConvex.setIcon(ATON.FE.PATH_RES_ICONS+"ann-convex.png")
@@ -547,6 +581,22 @@ HATHOR.suiSetup = ()=>{
 
                 HATHOR.resetSelectionMode();
                 btnAnnConvex.switch(false);
+            }
+        };
+
+    let btnAnnBrush = ATON.getUINode("sui_brush");
+    btnAnnBrush.setIcon(ATON.FE.PATH_RES_ICONS+"add.png") // temporary
+        .onSelect = ()=>{
+            if (HATHOR._actState !== HATHOR.SELACTION_BRUSH){
+                HATHOR.setSelectionMode(HATHOR.SELACTION_BRUSH);
+                btnAnnBrush.switch(true);
+            }
+            else {
+                let S = ATON.SemFactory.completeConvexShape();
+                if (S) ATON.getRootSemantics().add(S);
+
+                HATHOR.resetSelectionMode();
+                btnAnnBrush.switch(false);
             }
         };
 
@@ -870,6 +920,11 @@ HATHOR.setupEventHandlers = ()=>{
 
         if (HATHOR._actState === HATHOR.SELACTION_MEASURE){
             HATHOR.measure();
+        }
+
+        if (HATHOR._actState === HATHOR.SELACTION_BRUSH){
+            ATON.SemFactory.brush(); 
+            // TODO: Implement it
         }
     });
 /*
