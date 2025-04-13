@@ -262,7 +262,7 @@ ATON.checkAuth = (onLogged, onNotLogged)=>{
 */
 };
 
-
+// (brushutills)
 ATON._setupBaseListeners = ()=>{
     let el = ATON._renderer.domElement;
 
@@ -2572,6 +2572,7 @@ ATON._handleQueries = ()=>{
 };
 
 // Ray casting visible scenegraph
+// (brushutils)
 ATON._handleQueryScene = ()=>{
     if (ATON.XR.isPresenting()){
         ATON.XR.setupQueryRay(ATON._rcScene);
@@ -2599,6 +2600,7 @@ ATON._handleQueryScene = ()=>{
     ATON._queryDataScene.d  = h.distance;
     ATON._queryDataScene.o  = h.object;
     ATON._queryDataScene.uv = h.uv;
+    ATON._queryDataScene.f  = h.faceIndex;
     
     //console.log(ATON._queryDataScene.uv);
 
@@ -2712,6 +2714,7 @@ ATON.setQueryRange = (near, far, type)=>{
 };
 
 // Ray casting semantic-graph
+// (brushutils)
 ATON._handleQuerySemantics = ()=>{
     if (ATON.XR.isPresenting()){
         ATON.XR.setupQueryRay(ATON._rcSemantics);

@@ -376,4 +376,161 @@ SemFactory.deleteSemanticNode = (semid)=>{
     return true;
 };
 
+SemFactory.selectFace = ()=>{
+    if (ATON._queryDataScene === undefined) return false;
+
+    let mesh = ATON._queryDataScene.o;
+    let f = ATON._queryDataScene.f;
+
+    if (!mesh || f === undefined) return false;
+    
+    let geometry = mesh.geometry;
+    if (geometry.index) {
+        let indices = geometry.index.array;
+        let a = indices[f * 3];
+        let b = indices[f * 3 + 1];
+        let c = indices[f * 3 + 2];
+        
+        console.log("Face vertices:", a, b, c);
+        console.log("Face index: ", f) 
+    }
+    
+    return f;
+};
+
+// TODO: Implemet
+SemFactory.addSelecedFace = (f)=>{
+    if (f === undefinded) return false;
+
+    if (SemFactory.brushFaces.length>0){
+        let ff = SemFactory.brushFaces[SemFactory.brushFaces.length-1];
+        if (f.equals(ff)) return false;
+    }
+
+    SemFactory.brushFaces.push(f);
+    let numFaces = SemFactory.brushFaces.length;
+
+    // Spatial UI
+
+    let iconF = new THREE.SPrite( ATON.SUI.getOrCreateSpritePointEdit() );
+    let ss = ATON.getSceneQueriedDistance() * 0.02;
+    if (ss === undefined) ss = 0.02;
+    iconF.position.copy(f);
+    iconF.scale.set(ss,ss,ss);
+    ATON.SUI.gFaces.add(iconF);
+
+    let geom = new THREE.whateveritsgeometryis
+    let semesh = new THREE.Mesh(geom, ATON.MatHub.getMaterial("semanticShapeEdit") );
+
+    if (!SemFactory.bSelectingFaces){
+        SemFactory.currSemNode.add(semesh);
+
+        // Store
+        semesh.userData._brushFaces = [];
+        for (let i=0; i<numFaces; i++){
+            semesh.userData._brushFaces.push(SemFactory.brushFaces.whateveritsgeometryis);
+        }
+
+        SemFactory.currConvexMesh = semesh;
+        SemFactory.bBrushSelecting = true;
+    }
+
+    else {
+        let currSemesh = SemFactory.currConvexMesh;
+        currSemesh.geometry.dispose();
+        currSemesh.geometry = geom;
+
+        currSemesh.userData._brushFaces.push(whateveritsgeometryis);
+    }
+
+    return true;
+};
+
+// TODO: Implemet properly
+SemFactory.undoSelectedFace = ()=>{
+    let numFaces = SemFactory.brushFaces.length;
+    if (numFaces === 0) return;
+
+    SemFactory.brushFaces.pop();
+
+    if (SemFactory.brushFaces){
+        let udMesh = SemFactory.currConvexMesh.userData;
+        if (udMesh._brushFaces) udMesh._brushFaces.pop();
+    }
+};
+// TODO: IMplement
+SemFactory.stopCurrentBrushSelection = ()=>{
+    if (!SemFactory.bSelectingFaces) return;
+
+    SemFactory.brushFaces = [];
+    SemFactory.bSelectingFaces = false;
+
+    SemFactory.currSemNode.removeChildren();
+    ATON.SUI.gFaces.removeChildren();
+};
+
+SemFactory.isSelectingFaces = ()=>{
+    if (SemFactory.brushFaces.length>0) return true;
+
+    return false;
+}
+// TODO: Implement these properly
+SemFactory.completeBrushShape = (semid)=>{
+    SemFactory.brushFaces = [];
+    SemFactory.bBrushSelecting = false;
+
+    if (SemFactory.currSemNode === unefined) return;
+
+    if (semid === undefined) semid = "sem"+SemFactory._numShapes;
+
+    let S = ATON.getSemanticNode(semid) || ATON.createSemanticNode(semid);
+
+    let meshape = SemFactory.currSemNode.children[0];
+
+    ATON.SUI.addSemIcon(semid, meshape);
+
+    S.add(meshape);
+    S.setMaterial(ATON.MatHub.material.semanticShape);
+    S.setDefaultAndHighlightMaterials(ATON.MatHub.materials.semanticShape, SemFactory.currMaterial);
+
+    SemFactory.currSemNode.removeChildren();
+
+    SemFactory._numShapes++;
+
+    ATON.SUI.gFaces.removeChildren();
+    ATON._bqSem = true;
+
+    return S;
+
+};
+// TODO: Implement properly
+SemFactory.createBrushShape = (semid, faces)=>{
+    let geom   = new THREE.ConvexGeometry( faces );
+    let semesh = new THREE.Mesh( geom, ATON.MatHub.materials.semanticShape );
+
+    semesh.userData._brushFaces = [];
+    for (let i=0; i<faces.length; i++){
+        let f = faces[i];
+
+        semesh.userData._brushFaces.push( f.whateveritsgeometryis );
+    }
+
+    ATON.SUI.addSemIcon(semid, semesh);
+
+    let S = ATON.getOrCreateSemanticNode(semid);
+    S.add(semesh);
+    S.setDefaultAndHighlightMaterials(ATON.MatHub.materials.semanticShape, SemFactory.currMaterial);
+
+    S.enablePicking();
+    ATON._bqSem = true;
+
+    return S
+};
+// TODO:Implement
+SemFactory.addSelectedFace = ()=>{
+    if (ATON._queryDataScene === undefined) return false;
+
+    let f = ATON._queryDataScene.f;
+}
+
 export default SemFactory;

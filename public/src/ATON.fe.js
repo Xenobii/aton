@@ -15,6 +15,7 @@ let FE = {};
 // Semantic-shapes types
 FE.SEMSHAPE_SPHERE = 0;
 FE.SEMSHAPE_CONVEX = 1;
+FE.SEMSHAPE_BRUSH  = 2;
 
 FE.POPUP_DT = 500; //300;
 

@@ -243,10 +243,10 @@ HATHOR.uiAddButtonAnnConvex = (idcontainer)=>{
 // ANNOTATION ADDITIONS
 HATHOR.uiAddButtonAnnBrush = (idcontainer)=>{
     ATON.FE.uiAddButton(idcontainer, "ann-brush", ()=>{
-    if (HATHOR._actState !== HATHOR.SELACTION_BRUSH){
-        HATHOR.setSelectionMode(HATHOR.SELACTION_BRUSH);
-        ATON.Nav.setUserControl(false); // Temporarily make it like Art3mis
-        $("#btn-cancel").show();
+        if (HATHOR._actState !== HATHOR.SELACTION_BRUSH){
+            HATHOR.setSelectionMode(HATHOR.SELACTION_BRUSH);
+            ATON.Nav.setUserControl(false); // Temporarily make it like Art3mis
+            $("#btn-cancel").show();
         }
         else {
             HATHOR.resetSelectionMode();
@@ -280,7 +280,7 @@ HATHOR.uiBase = ()=>{
 HATHOR.uiAddBaseSem = ()=>{
     HATHOR.uiAddButtonAnnSphere("idTopToolbar");
     HATHOR.uiAddButtonAnnConvex("idTopToolbar");
-    HATHOR.uiAddButtonAnnBrush("idTopTollbar");
+    HATHOR.uiAddButtonAnnBrush("idTopToolbar");
     HATHOR.uiAddButtonTaskCancel("idTopToolbar");
 };
 
@@ -586,9 +586,16 @@ HATHOR.suiSetup = ()=>{
         };
 
     let btnAnnBrush = ATON.getUINode("sui_brush");
-    btnAnnBrush.setIcon(ATON.FE.PATH_RES_ICONS+"add.png") // temporary
+    btnAnnBrush.setIcon(ATON.FE.PATH_RES_ICONS+"ann-brush.png") // temporary
         .onSelect = ()=>{
-            // Brush logic
+            if (HATHOR._actState !== HATHOR.SELACTION_BRUSH){
+                HATHOR.setSelectionMode(HATHOR.SELACTION_BRUSH);
+                btnAnnBrush.switch(true);
+            }
+            else {
+                HATHOR.resetSelectionMode();
+                btnAnnBrush.switch(false);
+            }
         };
 
     let btnMeasure = ATON.getUINode("sui_measure");
@@ -779,6 +786,10 @@ HATHOR.setupEventHandlers = ()=>{
                 ATON.SemFactory.addSurfaceConvexPoint();
                 //TODO: ...or addConvecPoint() on selector location
             }
+
+            if (HATHOR._actState === HATHOR.SELACTION_BRUSH){
+                ATON.SemFactory.selectFace();
+            }
         }
     });
 
@@ -904,6 +915,7 @@ HATHOR.setupEventHandlers = ()=>{
         }
 
         if (HATHOR._actState === HATHOR.SELACTION_ADDSPHERESHAPE){
+            ATON.SemFactory.stopCurrentBrushSelection();
             ATON.SemFactory.stopCurrentConvex();
             HATHOR.popupAddSemantic(ATON.FE.SEMSHAPE_SPHERE);
             HATHOR.resetSelectionMode();
@@ -913,8 +925,9 @@ HATHOR.setupEventHandlers = ()=>{
             HATHOR.measure();
         }
         // (brushutils)
+        //incomplete
         if (HATHOR._actState === HATHOR.SELACTION_BRUSH){ 
-            // TODO: Implement it
+            ATON.SemFactory.selectFace();
         }
     });
 /*
@@ -996,6 +1009,7 @@ HATHOR.setupEventHandlers = ()=>{
 
         if (k==='a'){
             ATON.SemFactory.stopCurrentConvex();
+            ATON.SemFactory.stopCurrentBrushSelection();
             HATHOR.popupAddSemantic(ATON.FE.SEMSHAPE_SPHERE);
         }
         if (k==='s'){
@@ -1012,7 +1026,14 @@ HATHOR.setupEventHandlers = ()=>{
 
         if (k==='c') ATON.FE.popupScreenShot();
 
-        if (k==='b') ATON.SUI.showSelector( !ATON.SUI._bShowSelector );
+        // if (k==='b') ATON.SUI.showSelector( !ATON.SUI._bShowSelector );
+        // Who cares we replace it entirely
+        
+        // brushutils
+        if (k==='b') {
+            // TODO: implement fully
+            ATON.SemFactory.selectFace();
+        }
 
         if (k==='#'){
             let bShadows = !ATON._renderer.shadowMap.enabled;
@@ -1179,6 +1200,7 @@ HATHOR.finalizeCurrentTask = ()=>{
 HATHOR.cancelCurrentTask = ()=>{
     if (ATON.SemFactory.isBuildingShape()){
         ATON.SemFactory.stopCurrentConvex();
+        ATON.SemFactory.stopCurrentBrushSelection();
     }
     
     $("#btn-cancel").hide();
@@ -1492,6 +1514,7 @@ HATHOR.popupAddSemantic = (semtype, esemid)=>{
 
             if (semtype === ATON.FE.SEMSHAPE_SPHERE) S = ATON.SemFactory.createSurfaceSphere(semid);
             if (semtype === ATON.FE.SEMSHAPE_CONVEX) S = ATON.SemFactory.completeConvexShape(semid);
+            // if (semtype === ATON.FE.SEMSHAPE_BRUSH)  S = ATON.SemFactory.completeBrushShape(semid);
             if (S === undefined) return;
 
             let gSemXPF = ATON.XPFNetwork.getCurrentSemanticGroup();
@@ -2701,6 +2724,7 @@ HATHOR.popupHelp = ()=>{
     else {
         htmlcontent += "<li><span class='atonKey'>'a'</span>: add basic annotation (sphere)</li>";
         htmlcontent += "<li><span class='atonKey'>'s'</span>: initiate convex shape annotation (add surface point)</li>";
+        htmlcontent += "<li><span class='atonKey'>'b'</span>: select faces with brush (under development)</li>";
         htmlcontent += "<li><span class='atonKey'>'ENTER'</span>: finalize convex shape annotation</li>";
         htmlcontent += "<li><span class='atonKey'>'ESC'</span>: cancel/stop current convex shape annotation</li>";
         htmlcontent += "<li><span class='atonKey'>'e'</span>: edit hovered annotation</li>";

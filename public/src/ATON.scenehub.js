@@ -115,6 +115,7 @@ SceneHub.clearSemantics = ()=>{
     if (ATON.SUI.gSemIcons) ATON.SUI.gSemIcons.removeChildren();
 
     ATON.SemFactory.stopCurrentConvex();
+    ATON.SemFactory.stopCurrentBrushSelection();
     ATON.SemFactory.init();
 };
 
@@ -700,6 +701,21 @@ SceneHub.initBaseParsers = ()=>{
                     ATON.SemFactory.createConvexShape(nid, points);
                 }
 
+            }
+            //brushutils
+            let brushshapes = N.brushshapes;
+            if (Array.isArray(brushshapes)){
+                for (let s in brushshapes){
+                    let S = brushshapes[s];
+
+                    let faces = [];
+                    for (let i=0;i<S.length; i+=3){
+                        let f = new THREE.whatevergeometry;
+                        faces.push(f);
+                    }
+
+                    ATON.SemFactory.createBrushShape(nid, faces);
+                }
             }
         }
 
