@@ -54,6 +54,7 @@ ATON.EventHub.on("myEvent", function(data){ console.log("received local event");
 @example
 ATON.on("myEvent", function(data){ console.log("received local event"); })
 */
+// (brushutils)
 EventHub.on = (evtname, handlerLocal, handlerNetwork)=>{
     // Local event (default)
     if (handlerLocal !== undefined){

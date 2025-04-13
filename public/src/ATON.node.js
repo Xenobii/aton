@@ -101,6 +101,7 @@ Add keyword(s) to this node. Keywords are also recursively added into the sub-gr
 @example
 myNode.addKeywords("heritage,reconstruction");
 */
+// (brushutils)
 addKeywords(kw){
     let K = kw.split(",");
 
@@ -298,6 +299,7 @@ setDefaultAndHighlightMaterials(matSTD, matHL){
 
     return this;
 }
+// (brushutils)
 highlight(){
     if (this.userData.matHL) this.setMaterial(this.userData.matHL);
     return this;
@@ -428,6 +430,7 @@ updateLightProbes = ()=>{
 };
 
 // Deep clone
+//(brushutils)
 duplicate(){
     let C = this.clone();
 

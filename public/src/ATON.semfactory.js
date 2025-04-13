@@ -51,7 +51,7 @@ A minimum of 4 points are required. Return true if point was successfully added
 */
 SemFactory.addConvexPoint = (/*semid,*/ p)=>{
     if (p === undefined) return false;
-
+    // (brushutils)
     if (SemFactory.convexPoints.length>0){
         let pp = SemFactory.convexPoints[SemFactory.convexPoints.length-1];
         if (p.equals(pp)) return false;

@@ -317,13 +317,14 @@ HATHOR.customUIList = (list)=>{
         if (uiname === "layers") ATON.FE.uiAddButton("idTopToolbar", "list", HATHOR.popupGraphs, "Scene Layers");
         if (uiname === "scene") ATON.FE.uiAddButton("idTopToolbar", "scene", HATHOR.popupScene, "Scene" );
         if (uiname === "env") ATON.FE.uiAddButton("idTopToolbar","light", HATHOR.popupEnvironment, "Environment");
-
+        
         if (uiname === "collab") ATON.FE.uiAddButtonVRC("idTopToolbar");
         if (uiname === "user") ATON.FE.uiAddButtonUser("idTopToolbar");
 
         if (uiname === "capture") ATON.FE.uiAddButtonScreenshot("idTopToolbar");
 
         if (uiname === "help") ATON.FE.uiAddButton("idTopToolbar", "help", HATHOR.popupHelp, "Help" );
+
     }
 };
 
@@ -560,12 +561,12 @@ HATHOR.suiSetup = ()=>{
 
     buttons.push( new ATON.SUI.Button("sui_annconvex") );
     buttons.push( new ATON.SUI.Button("sui_measure") );
+    buttons.push( new ATON.SUI.Button("sui_brush") );
     buttons.push( new ATON.SUI.Button("sui_talk") );
     buttons.push( new ATON.SUI.Button("sui_home") );
     buttons.push( new ATON.SUI.Button("sui_povnext") );
     buttons.push( new ATON.SUI.Button("sui_uscale") );
     buttons.push( new ATON.SUI.Button("sui_exitxr") );
-    buttons.push( new ATON.SUI.Button("sui_brush") );
 
     let btnAnnConvex = ATON.getUINode("sui_annconvex");
     btnAnnConvex.setIcon(ATON.FE.PATH_RES_ICONS+"ann-convex.png")
@@ -587,17 +588,7 @@ HATHOR.suiSetup = ()=>{
     let btnAnnBrush = ATON.getUINode("sui_brush");
     btnAnnBrush.setIcon(ATON.FE.PATH_RES_ICONS+"add.png") // temporary
         .onSelect = ()=>{
-            if (HATHOR._actState !== HATHOR.SELACTION_BRUSH){
-                HATHOR.setSelectionMode(HATHOR.SELACTION_BRUSH);
-                btnAnnBrush.switch(true);
-            }
-            else {
-                let S = ATON.SemFactory.completeConvexShape();
-                if (S) ATON.getRootSemantics().add(S);
-
-                HATHOR.resetSelectionMode();
-                btnAnnBrush.switch(false);
-            }
+            // Brush logic
         };
 
     let btnMeasure = ATON.getUINode("sui_measure");
@@ -921,9 +912,8 @@ HATHOR.setupEventHandlers = ()=>{
         if (HATHOR._actState === HATHOR.SELACTION_MEASURE){
             HATHOR.measure();
         }
-
-        if (HATHOR._actState === HATHOR.SELACTION_BRUSH){
-            ATON.SemFactory.brush(); 
+        // (brushutils)
+        if (HATHOR._actState === HATHOR.SELACTION_BRUSH){ 
             // TODO: Implement it
         }
     });

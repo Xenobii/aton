@@ -63,6 +63,7 @@ SUI.init = ()=>{
     ATON._rootUI.add(SUI._measLine);
 
     // Sem convex-shapes edit points 
+    // (brushutils)
     SUI.gPoints = ATON.createUINode();
     ATON._rootUI.add(SUI.gPoints);
 
@@ -109,6 +110,7 @@ SUI.init = ()=>{
     SUI._sync = 0;
 };
 
+// (brushutils)
 // Sprites
 SUI.getOrCreateSpritePointEdit = ()=>{
     if (SUI.sprites.pointEdit) return SUI.sprites.pointEdit;

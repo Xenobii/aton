@@ -418,7 +418,7 @@ Utils.loadTexture = (url, onComplete)=>{
     return Utils.textureLoader.load(url, onComplete);
 };
 
-
+//Maybe (brushtoolutil)
 // Helper visitor routine
 // Note: N (parent node) is not yet connected to model
 Utils.modelVisitor = (N, model)=>{
