@@ -73,7 +73,7 @@ SemFactory.addConvexPoint = (/*semid,*/ p)=>{
     iconP.scale.set(ss,ss,ss);
     ATON.SUI.gPoints.add(iconP);
 
-    if (numPoints < 4) return false;
+    if (numPoints < 3) return false;
 
     // lets build convex shape
     let geom   = new THREE.ConvexGeometry( SemFactory.convexPoints ); // new THREE.ConvexBufferGeometry( SemFactory.convexPoints );
@@ -94,7 +94,7 @@ SemFactory.addConvexPoint = (/*semid,*/ p)=>{
         semesh.userData._convexPoints = [];
         for (let i=0; i<numPoints; i++){
             //semesh.userData._convexPoints.push( ATON.Utils.setVectorPrecision(SemFactory.convexPoints[i],3) );
-
+            console.log("Convex: ", SemFactory.convexPoints[i])
             ATON.Utils.setVectorPrecision(SemFactory.convexPoints[i], SemFactory.FLOAT_PREC);
             
             semesh.userData._convexPoints.push(SemFactory.convexPoints[i].x);
@@ -376,74 +376,128 @@ SemFactory.deleteSemanticNode = (semid)=>{
     return true;
 };
 
-SemFactory.selectFace = ()=>{
+//=============================================
+//My Additions
+
+/**
+Select a single specific face of an object via ray-casting
+Log the face id and defining vertices
+@returns {{Int, [Vector3]}} - Face index and vertices 
+*/
+SemFactory.selectSingleFace = ()=>{
     if (ATON._queryDataScene === undefined) return false;
 
     let mesh = ATON._queryDataScene.o;
-    let f = ATON._queryDataScene.f;
+    let fid = ATON._queryDataScene.f;
 
-    if (!mesh || f === undefined) return false;
+    if (!mesh || fid === undefined) return false;
     
     let geometry = mesh.geometry;
+    
+    let face = {
+        index: fid,
+        vertices: []
+    };
+
     if (geometry.index) {
         let indices = geometry.index.array;
-        let a = indices[f * 3];
-        let b = indices[f * 3 + 1];
-        let c = indices[f * 3 + 2];
+        let positions = geometry.attributes.position.array;
+
+        let a = indices[fid * 3];
+        let b = indices[fid * 3 + 1];
+        let c = indices[fid * 3 + 2];
+
+        face.indices = [a, b, c]
         
-        console.log("Face vertices:", a, b, c);
-        console.log("Face index: ", f) 
+        face.vertices = [
+            new THREE.Vector3(
+                positions[a * 3],
+                positions[a * 3 + 1],
+                positions[a * 3 + 2]
+            ),
+            new THREE.Vector3(
+                positions[b * 3],
+                positions[b * 3 + 1],
+                positions[b * 3 + 2]
+            ),
+            new THREE.Vector3(
+                positions[c * 3],
+                positions[c * 3 + 1],
+                positions[c * 3 + 2]
+            ) 
+        ]
+        // console.log("Face vertices:", a, b, c);
+        // console.log("Face index: ", fid) 
     }
     
-    return f;
+    console.log("Selected face id: ", face.index);
+    console.log("Selected face vertices: ", face.vertices);
+
+    return face;
 };
 
-// TODO: Implemet
-SemFactory.addSelecedFace = (f)=>{
-    if (f === undefinded) return false;
+SemFactory.SelectMultipleFaces = (radius = 0.5)=>{
+    
+};
 
-    if (SemFactory.brushFaces.length>0){
-        let ff = SemFactory.brushFaces[SemFactory.brushFaces.length-1];
-        if (f.equals(ff)) return false;
-    }
+/**
+Convert faces to semantic node
+Creates a duplicate copy of the faces and assigns it to a semantic node
+@param {string} semid
+@param {{Int, Vector3}} faces - faces
+@returns {Node}
+*/
+SemFactory.createBrushSemantic = (semid, face)=>{
+    // For now we handle it as a single face
+    if (!ATON._queryDataScene) return undefined;
+    points = face.vertices;
 
-    SemFactory.brushFaces.push(f);
-    let numFaces = SemFactory.brushFaces.length;
+    if (semid === undefined) semid = "sem"+SemFactory._numShapes;
 
-    // Spatial UI
+    let geom   = new THREE.ConvexGeometry( points );
+    let semesh = new THREE.Mesh( geom, ATON.MatHub.materials.semanticShape );
+        
+    let S = ATON.getOrCreateSemanticNode(semid);
+    
+    ATON.SUI.addSemIcon(semid, semesh);
+    
+    S.add(semesh);
+    S.setDefaultAndHighlightMaterials(ATON.MatHub.materials.semanticShape, SemFactory.currMaterial);
 
-    let iconF = new THREE.SPrite( ATON.SUI.getOrCreateSpritePointEdit() );
-    let ss = ATON.getSceneQueriedDistance() * 0.02;
-    if (ss === undefined) ss = 0.02;
-    iconF.position.copy(f);
-    iconF.scale.set(ss,ss,ss);
-    ATON.SUI.gFaces.add(iconF);
+    S.enablePicking();
+    ATON._bqSem = true;
 
-    let geom = new THREE.whateveritsgeometryis
-    let semesh = new THREE.Mesh(geom, ATON.MatHub.getMaterial("semanticShapeEdit") );
+    return S;
+};
 
-    if (!SemFactory.bSelectingFaces){
-        SemFactory.currSemNode.add(semesh);
+// TODO: Less scuffed implementation
+SemFactory.addSelectedFaces = (faces)=>{
+    if (faces === undefined) return false;
 
-        // Store
-        semesh.userData._brushFaces = [];
-        for (let i=0; i<numFaces; i++){
-            semesh.userData._brushFaces.push(SemFactory.brushFaces.whateveritsgeometryis);
+    console.log("Number of selected faces: ", faces.length);
+
+    // For single face
+    if (faces.length === undefined){
+        let points = faces.vertices;
+    
+        for (let i=0; i<points.length; i++){
+            let p = points[i]
+            SemFactory.addConvexPoint(p);
         }
-
-        SemFactory.currConvexMesh = semesh;
-        SemFactory.bBrushSelecting = true;
+        return true;
     }
 
-    else {
-        let currSemesh = SemFactory.currConvexMesh;
-        currSemesh.geometry.dispose();
-        currSemesh.geometry = geom;
-
-        currSemesh.userData._brushFaces.push(whateveritsgeometryis);
+    // For multiple faces
+    for (let f=0;f<faces.length; f++){
+        let points = f.vertices;
+    
+        for (let i=0; i<points.length; i++){
+            let p = points[i]
+            SemFactory.addConvexPoint(p);
+        }
+        return true;
     }
 
-    return true;
 };
 
 // TODO: Implemet properly
@@ -526,11 +580,5 @@ SemFactory.createBrushShape = (semid, faces)=>{
 
     return S
 };
-// TODO:Implement
-SemFactory.addSelectedFace = ()=>{
-    if (ATON._queryDataScene === undefined) return false;
-
-    let f = ATON._queryDataScene.f;
-}
 
 export default SemFactory;

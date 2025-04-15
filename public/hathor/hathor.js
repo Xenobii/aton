@@ -788,7 +788,8 @@ HATHOR.setupEventHandlers = ()=>{
             }
 
             if (HATHOR._actState === HATHOR.SELACTION_BRUSH){
-                ATON.SemFactory.selectFace();
+                let f = ATON.SemFactory.selectFace();
+                ATON.SemFactory.addSelectedFaces(f);
             }
         }
     });
@@ -927,7 +928,8 @@ HATHOR.setupEventHandlers = ()=>{
         // (brushutils)
         //incomplete
         if (HATHOR._actState === HATHOR.SELACTION_BRUSH){ 
-            ATON.SemFactory.selectFace();
+            let f = ATON.SemFactory.selectFace();
+            ATON.SemFactory.addSelectedFace(f);
         }
     });
 /*
@@ -1032,7 +1034,8 @@ HATHOR.setupEventHandlers = ()=>{
         // brushutils
         if (k==='b') {
             // TODO: implement fully
-            ATON.SemFactory.selectFace();
+            let faces = ATON.SemFactory.selectSingleFace();
+            ATON.SemFactory.addSelectedFaces(faces);
         }
 
         if (k==='#'){
@@ -1514,7 +1517,7 @@ HATHOR.popupAddSemantic = (semtype, esemid)=>{
 
             if (semtype === ATON.FE.SEMSHAPE_SPHERE) S = ATON.SemFactory.createSurfaceSphere(semid);
             if (semtype === ATON.FE.SEMSHAPE_CONVEX) S = ATON.SemFactory.completeConvexShape(semid);
-            // if (semtype === ATON.FE.SEMSHAPE_BRUSH)  S = ATON.SemFactory.completeBrushShape(semid);
+            // if (semtype === ATON.FE.SEMSHAPE_BRUSH)  S = ATON.SemFactory.createBrushShape(semid);
             if (S === undefined) return;
 
             let gSemXPF = ATON.XPFNetwork.getCurrentSemanticGroup();
