@@ -117,6 +117,7 @@ SceneHub.clearSemantics = ()=>{
     ATON.SemFactory.stopCurrentConvex();
     ATON.SemFactory.stopCurrentBrushSelection();
     ATON.SemFactory.init();
+    ATON.AnnotFactory.init();
 };
 
 // Clears everything

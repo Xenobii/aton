@@ -788,7 +788,7 @@ HATHOR.setupEventHandlers = ()=>{
             }
 
             if (HATHOR._actState === HATHOR.SELACTION_BRUSH){
-                let f = ATON.SemFactory.selectMultipleFaces();
+                let f = ATON.SemFactory.selectFaces();
                 ATON.SemFactory.addSelectedFaces(f);
             }
         }
@@ -916,8 +916,8 @@ HATHOR.setupEventHandlers = ()=>{
         }
 
         if (HATHOR._actState === HATHOR.SELACTION_ADDSPHERESHAPE){
-            ATON.SemFactory.stopCurrentBrushSelection();
             ATON.SemFactory.stopCurrentConvex();
+            ATON.AnnotFactory.stopCurrentAnnot();
             HATHOR.popupAddSemantic(ATON.FE.SEMSHAPE_SPHERE);
             HATHOR.resetSelectionMode();
         }
@@ -928,7 +928,7 @@ HATHOR.setupEventHandlers = ()=>{
         // (brushutils)
         //incomplete
         if (HATHOR._actState === HATHOR.SELACTION_BRUSH){ 
-            let f = ATON.SemFactory.selectMultipleFaces();
+            let f = ATON.SemFactory.selectFace();
             ATON.SemFactory.addSelectedFace(f);
         }
     });
@@ -1011,7 +1011,7 @@ HATHOR.setupEventHandlers = ()=>{
 
         if (k==='a'){
             ATON.SemFactory.stopCurrentConvex();
-            ATON.SemFactory.stopCurrentBrushSelection();
+            ATON.AnnotFactory.stopCurrentAnnot();
             HATHOR.popupAddSemantic(ATON.FE.SEMSHAPE_SPHERE);
         }
         if (k==='s'){
@@ -1034,9 +1034,8 @@ HATHOR.setupEventHandlers = ()=>{
         // brushutils
         if (k==='b') {
             // TODO: implement fully
-            // let faces = ATON.SemFactory.selectSingleFace();
-            let faces = ATON.SemFactory.selectMultipleFaces()
-            ATON.SemFactory.addSelectedFaces(faces);
+            let faces = ATON.AnnotFactory.selectMultipleFaces()
+            ATON.AnnotFactory.convertFacesToMesh(faces)
         }
 
         if (k==='#'){
@@ -1195,6 +1194,7 @@ HATHOR.setupEventHandlers = ()=>{
 
 // Tasks
 HATHOR.finalizeCurrentTask = ()=>{
+    // brushutils
     if (ATON.SemFactory.isBuildingShape()){
         HATHOR.popupAddSemantic(ATON.FE.SEMSHAPE_CONVEX);
         $("#btn-cancel").hide();
@@ -1204,9 +1204,10 @@ HATHOR.finalizeCurrentTask = ()=>{
 HATHOR.cancelCurrentTask = ()=>{
     if (ATON.SemFactory.isBuildingShape()){
         ATON.SemFactory.stopCurrentConvex();
-        ATON.SemFactory.stopCurrentBrushSelection();
     }
-    
+    if (ATON.AnnotFactory.isBuildingAnnot()){
+    ATON.AnnotFactory.stopCurrentAnnot();
+    }    
     $("#btn-cancel").hide();
     HATHOR.resetSelectionMode();
 };

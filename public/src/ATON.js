@@ -35,6 +35,7 @@ import SUI from "./ATON.sui.js";
 import UI from "./ATON.ui.js";
 import Photon from "./ATON.photon.js";
 import SemFactory from "./ATON.semfactory.js";
+import AnnotFactory from "./ATON.annotfactory.js";
 import FE from "./ATON.fe.js";
 import MediaFlow from "./ATON.mediaflow.js";
 import Phygital from "./ATON.phygital.js";
@@ -67,6 +68,7 @@ ATON.SUI        = SUI;
 ATON.UI         = UI;
 ATON.Photon     = Photon;
 ATON.SemFactory = SemFactory;
+ATON.AnnotFactory = AnnotFactory; 
 ATON.FE         = FE;
 ATON.MediaFlow  = MediaFlow;
 ATON.Phygital   = Phygital;
@@ -811,6 +813,9 @@ ATON.realize = ( bNoRender )=>{
 
     // Semantic Factory
     ATON.SemFactory.init();
+
+    // Annot Factroy
+    ATON.AnnotFactory.init();
 
     // App
     //ATON.App.init();
