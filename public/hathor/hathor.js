@@ -788,7 +788,7 @@ HATHOR.setupEventHandlers = ()=>{
             }
 
             if (HATHOR._actState === HATHOR.SELACTION_BRUSH){
-                let f = ATON.SemFactory.selectFace();
+                let f = ATON.SemFactory.selectMultipleFaces();
                 ATON.SemFactory.addSelectedFaces(f);
             }
         }
@@ -928,7 +928,7 @@ HATHOR.setupEventHandlers = ()=>{
         // (brushutils)
         //incomplete
         if (HATHOR._actState === HATHOR.SELACTION_BRUSH){ 
-            let f = ATON.SemFactory.selectFace();
+            let f = ATON.SemFactory.selectMultipleFaces();
             ATON.SemFactory.addSelectedFace(f);
         }
     });
@@ -1034,7 +1034,8 @@ HATHOR.setupEventHandlers = ()=>{
         // brushutils
         if (k==='b') {
             // TODO: implement fully
-            let faces = ATON.SemFactory.selectSingleFace();
+            // let faces = ATON.SemFactory.selectSingleFace();
+            let faces = ATON.SemFactory.selectMultipleFaces()
             ATON.SemFactory.addSelectedFaces(faces);
         }
 
