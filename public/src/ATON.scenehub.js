@@ -221,7 +221,7 @@ SceneHub.getJSONsemanticConvexShapes = (semid)=>{
         }
     }
 
-    //console.log(CL);
+    console.log(CL);
     
     return CL;
 };

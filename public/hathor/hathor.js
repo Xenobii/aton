@@ -514,8 +514,6 @@ HATHOR.buildUIProfiles = ()=>{
 
 };
 
-
-
 HATHOR.uiSetup = ()=>{
 
     HATHOR.buildUIProfiles();
@@ -1056,6 +1054,11 @@ HATHOR.setupEventHandlers = ()=>{
 
         if (k==='p'){
             HATHOR.addLightProbe();
+        }
+
+        // Change to ctr z obviously
+        if (k==='z'){
+            ATON.AnnotFactory.undoLastSelection();
         }
 
 /*

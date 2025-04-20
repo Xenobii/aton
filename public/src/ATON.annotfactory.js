@@ -12,7 +12,11 @@ AnnotFactory.FLOAT_PREC = 5;
 
 AnnotFactory.init = () => {
     AnnotFactory.bAnnotBuilding = false;
+
     AnnotFactory.convexPoints = [];
+    AnnotFactory.currConvexPoints = [];
+    
+    AnnotFactory.convexShapes = [];
     AnnotFactory.annotFaces = [];
     AnnotFactory.annotNode = undefined;
     AnnotFactory.currAnnotMesh = undefined;
@@ -24,7 +28,10 @@ AnnotFactory.init = () => {
 
     AnnotFactory.resetMaterial();
 
-    AnnotFactory._numFaces = 0; // counter of facesproduced
+    AnnotFactory.annotGroup = new THREE.Group();
+    // AnnotFactory.annotGroup.clear();
+
+    AnnotFactory._numFaces = 0; // counter of faces produced
 };
 
 // Current material
@@ -144,6 +151,8 @@ AnnotFactory.selectMultipleFaces = (brushSize = 0.01) => {
     sphere.center.copy(hitPoint).applyMatrix4(inverseMatrix);
     sphere.radius = brushSize;
 
+    // ADD RAYCASTING LIMITATIONS (TO NOT CAST ON CONVEX GEOMETRIES)
+
     if (geometry.boundsTree) {
         geometry.boundsTree.shapecast({
             intersectsBounds: box => {
@@ -201,7 +210,7 @@ AnnotFactory.selectMultipleFaces = (brushSize = 0.01) => {
 Get a unique vertices list from a set of faces 
 */
 AnnotFactory.getUniqueVertices = (faces) => {
-    if (faces === undefined) return false;
+    if (faces === undefined || faces === false) return false;
 
     // Get all vertices with non-duplicates
     let verticeMap = new Map();
@@ -231,60 +240,62 @@ AnnotFactory.getUniqueVertices = (faces) => {
 Converts faces to mesh
 @param faces 
 @returns {Mesh} - faceMesh
- */
+*/
 AnnotFactory.convertFacesToMesh = (faces) => {
     // See SemFactory.addConvexPoint
-    if (faces === undefined) return false;
+    if (faces === undefined || faces === false) return false;
     
-    // Push to convexPoints
-    let uniqueVertices = AnnotFactory.getUniqueVertices(faces);
-    uniqueVertices.forEach(p => {
-        AnnotFactory.convexPoints.push(p);
-    });
-    let numVertices = AnnotFactory.convexPoints.length;
+    if (AnnotFactory.currConvexPoints) {
+        AnnotFactory.currConvexPoints = [];
+    };
 
-    // Simple debugging
-    if (numVertices < 1) {
-        console.log("wtf");
-        return false;
-    }
+    // Get uniqueVertices
+    let uniqueVertices = AnnotFactory.getUniqueVertices(faces);
+    
+    // Push to currConvexPoints
+    uniqueVertices.forEach(p => {
+        AnnotFactory.currConvexPoints.push(p);
+    });
+    let currNumVertices = AnnotFactory.currConvexPoints.length;
 
     // Create the mesh
-    let geom = new THREE.ConvexGeometry(AnnotFactory.convexPoints);
-    let semesh = new THREE.Mesh(geom, ATON.MatHub.getMaterial("semanticShapeEdit"));
-
-    // First selection
-    if (!AnnotFactory.bAnnotBuilding) {
-        AnnotFactory.currSemNode.add(semesh);
-
-        // Store
-        semesh.userData._convexPoints = [];
-        for (let i=0; i < numVertices; i++) {
-            ATON.Utils.setVectorPrecision(AnnotFactory.convexPoints[i], AnnotFactory.FLOAT_PREC);
-
-            semesh.userData._convexPoints.push(AnnotFactory.convexPoints[i].x);
-            semesh.userData._convexPoints.push(AnnotFactory.convexPoints[i].y);
-            semesh.userData._convexPoints.push(AnnotFactory.convexPoints[i].z);
-        }
-
-        AnnotFactory.currAnnotMesh = semesh;
+    let geom = new THREE.ConvexGeometry(AnnotFactory.currConvexPoints);
+    let currSemesh = new THREE.Mesh(geom, ATON.MatHub.getMaterial("semanticShapeEdit"));
+    
+    // Add to Group, add group to semNode 
+    // Adding to SemNode is necessary for visibility
+    
+    // First item
+    if (AnnotFactory.annotGroup.children.length === 0) {
+        AnnotFactory.annotGroup.add(currSemesh);
+        AnnotFactory.currSemNode.add(AnnotFactory.annotGroup);
         AnnotFactory.bAnnotBuilding = true;
     }
-
-    // Add to existing geometry
     else {
-        let currSemesh = AnnotFactory.currAnnotMesh;
-        currSemesh.geometry.dispose();
-        currSemesh.geometry = geom;
-
-        for (let i=0; i < numVertices; i++) {
-            ATON.Utils.setVectorPrecision(AnnotFactory.convexPoints[i], AnnotFactory.FLOAT_PREC);
-
-            currSemesh.userData._convexPoints.push(AnnotFactory.convexPoints[i].x);
-            currSemesh.userData._convexPoints.push(AnnotFactory.convexPoints[i].y);
-            currSemesh.userData._convexPoints.push(AnnotFactory.convexPoints[i].z);
-        }
+        AnnotFactory.annotGroup.add(currSemesh);
+        AnnotFactory.currSemNode.removeChildren();
+        AnnotFactory.currSemNode.add(AnnotFactory.annotGroup);
     }
+    // Create method for storing and DISPLAYING annotations without
+    // userData storage
+    
+    return true;
+};
+
+/**
+Undo latest selection by removing last added mesh
+*/
+AnnotFactory.undoLastSelection = () => {
+    let childrenLength = AnnotFactory.annotGroup.children.length;
+    if (childrenLength === 0) return false;
+
+    let lastMesh = AnnotFactory.annotGroup.children[childrenLength - 1];
+    AnnotFactory.annotGroup.remove(lastMesh);
+
+    // Check if removing mesh is necessary
+
+    console.log("Undo successful");
+
     return true;
 };
 
@@ -296,6 +307,7 @@ AnnotFactory.stopCurrentAnnot = () => {
 
     AnnotFactory.convexPoints = [];
     AnnotFactory.bAnnotBuilding = false;
+    AnnotFactory.annotGroup.clear();
 
     AnnotFactory.currSemNode.removeChildren();
     ATON.SUI.gPoints.removeChildren();
@@ -306,7 +318,7 @@ Return true if currently building a convex annotation shape
 @returns {boolean}
 */
 AnnotFactory.isBuildingAnnot = () => {
-    if (AnnotFactory.convexPoints.length > 0) return true;
+    if (AnnotFactory.annotGroup.children.length > 0) return true;
 
     return false;
 };
