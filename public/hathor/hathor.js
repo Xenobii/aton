@@ -1032,8 +1032,10 @@ HATHOR.setupEventHandlers = ()=>{
         // brushutils
         if (k==='b') {
             // TODO: implement fully
-            let faces = ATON.AnnotFactory.selectMultipleFaces()
-            ATON.AnnotFactory.convertFacesToMesh(faces)
+            // let faces = ATON.AnnotFactory.selectMultipleFaces()
+            // ATON.AnnotFactory.convertFacesToMesh(faces)
+
+            ATON.AnnotFactory.selectAndHighlightFaces();
         }
 
         if (k==='#'){
@@ -1058,7 +1060,7 @@ HATHOR.setupEventHandlers = ()=>{
 
         // Change to ctr z obviously
         if (k==='z'){
-            ATON.AnnotFactory.undoLastSelection();
+            // ATON.AnnotFactory.undoLastSelection();
         }
 
 /*
@@ -1209,7 +1211,7 @@ HATHOR.cancelCurrentTask = ()=>{
         ATON.SemFactory.stopCurrentConvex();
     }
     if (ATON.AnnotFactory.isBuildingAnnot()){
-    ATON.AnnotFactory.stopCurrentAnnot();
+    // ATON.AnnotFactory.stopCurrentAnnot();
     }    
     $("#btn-cancel").hide();
     HATHOR.resetSelectionMode();
