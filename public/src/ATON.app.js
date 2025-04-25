@@ -321,6 +321,16 @@ App.loadScene = (sid, onSuccess)=>{
     );
 };
 
+App.loadAnnot = (sid, onSuccess)=>{
+    if (sid === undefined) return;
+
+    ATON.Scenehub.loadAnnot(
+        ATON.PATH_RESTAPI2+"scenes/"+sid,
+        sid,
+        onSuccess
+    );
+};
+
 /**
 Realize the App.
 You can use "params" property to access url parameters, and "basePath" for accessing local app content (css, configs, etc.)

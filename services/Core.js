@@ -57,6 +57,7 @@ Core.DIR_SCENES         = path.join(Core.DIR_DATA,"scenes/");   //path.join(Core
 Core.DIR_EXAMPLES       = path.join(Core.DIR_PUBLIC,"examples/");
 Core.DIR_FLARES         = path.join(Core.DIR_CONFIG,"flares/"); //path.join(Core.DIR_PUBLIC,"custom/flares/");
 Core.STD_SCENEFILE      = "scene.json";
+Core.STD_ANNOTFILE		= "annot.json";
 Core.STD_PUBFILE        = "pub.txt"; // deprecated
 Core.STD_COVERFILE_HI   = "cover.png";
 Core.STD_COVERFILE      = "cover.jpg";
@@ -492,6 +493,70 @@ Core.getSceneFolder = (sid)=>{
 Core.getSceneJSONPath = (sid)=>{
 	let jsonfile = path.join( Core.getSceneFolder(sid), Core.STD_SCENEFILE);
 	return jsonfile;
+};
+
+Core.getAnnotJSONPath = (sid)=>{
+	let jsonfile = path.join( Core.getSceneFolder(sid), Core.STD_ANNOTFILE);
+	return jsonfile;
+};
+
+Core.createAnnotJSON = (sid)=>{
+	let ajpath = Core.getAnnotJSONPath(sid);
+	if (fs.existsSync(ajpath)) return undefined;
+
+	// We'll see what the base data is
+
+	// Move this to a seprate function maybe from here 
+	let anobj = {};
+
+	anobj.status = "confused";
+	
+	anobj.annotgraph = {};
+	anobj.annotgraph.nodes = {};
+	
+	anobj.annotgraph.edges = {};
+	anobj.annotgraph.edges["."] = [];
+	// till here
+
+	data = JSON.stringify(anobj);
+	let F = fs.writeFileSync(ajpath, data, 'utf8');
+
+	return F;
+};
+
+Core.readAnnotJSON = (sid)=>{
+	let ajpath = Core.getAnnotJSONPath(sid);
+	if (!fs.existsSync(ajpath)) return undefined;
+
+	let F = fs.readFileSync(ajpath, 'utf8');
+	let A = undefined;
+
+	try {
+		A = JSON.parse(F);
+		return A;
+	} catch(e) {
+		console.log("ERROR malformed annotation: ", sid);
+		console.log(e);
+		return undefined;
+	}
+};
+
+// brush utils??
+Core.applyAnnotEdit = (sid, patch, mode)=>{
+	let ajpath = Core.getAnnotJSONPath(sid);
+	let A = Core.readAnnotJSON(sid);
+
+	if (!A) return undefined; // Annotation problem
+
+	if (mode === "DEL") A = Core.deleteOBJEdit(A, patch);
+	// addObjEdit should work for this as well
+	A = Core.addOBJEdit(A, patch);
+
+	A = Core.cleanScene(A);
+
+	fs.writeFileSync(ajpath, JSON.stringify(A));
+
+	return A;
 };
 
 // Deprecated

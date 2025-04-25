@@ -141,6 +141,11 @@ HATHOR.update = ()=>{
         }
     }
 */
+    if (!ATON.FE._bPopup){
+        if (HATHOR._actState === HATHOR.SELACTION_BRUSH && ATON._bPointerDown) {
+            ATON.AnnotFactory.selectAndHighlightFaces();
+        }
+    }
 };
 
 
@@ -241,6 +246,7 @@ HATHOR.uiAddButtonAnnConvex = (idcontainer)=>{
 };
 
 // ANNOTATION ADDITIONS
+// brush utils CHANGE ALL OF THIS
 HATHOR.uiAddButtonAnnBrush = (idcontainer)=>{
     ATON.FE.uiAddButton(idcontainer, "ann-brush", ()=>{
         if (HATHOR._actState !== HATHOR.SELACTION_BRUSH){
@@ -1060,7 +1066,11 @@ HATHOR.setupEventHandlers = ()=>{
 
         // Change to ctr z obviously
         if (k==='z'){
-            // ATON.AnnotFactory.undoLastSelection();
+            ATON.AnnotFactory.changeSUISphere(true);
+        }
+
+        if (k==='y'){
+            ATON.AnnotFactory.changeSUISphere(false);
         }
 
 /*
@@ -1204,15 +1214,20 @@ HATHOR.finalizeCurrentTask = ()=>{
         HATHOR.popupAddSemantic(ATON.FE.SEMSHAPE_CONVEX);
         $("#btn-cancel").hide();
     }
+    if (ATON.AnnotFactory.isBuildingAnnot()){
+        console.log("ok we saving stuff?");
+        HATHOR.popupAddSemantic(ATON.FE.BRUSH_ANNOTATION);
+        $("#btn-cancel").hide();
+    }
 };
 
 HATHOR.cancelCurrentTask = ()=>{
     if (ATON.SemFactory.isBuildingShape()){
         ATON.SemFactory.stopCurrentConvex();
     }
-    if (ATON.AnnotFactory.isBuildingAnnot()){
-    // ATON.AnnotFactory.stopCurrentAnnot();
-    }    
+    // if (ATON.AnnotFactory.isBuildingAnnot()){
+    ATON.AnnotFactory.clearSelection();
+    // }    
     $("#btn-cancel").hide();
     HATHOR.resetSelectionMode();
 };
@@ -1418,6 +1433,17 @@ HATHOR.createSemanticTextEditor = (idtextarea)=>{
     return SCE;
 };
 
+HATHOR.addAnnotations = ()=>{
+    if (ATON.AnnotFactory.currSelection === undefined) return false;
+    let E = {};
+    E.annotgraph = {};
+    E.annotgraph.faces = [Array.from(ATON.AnnotFactory.currSelection)];
+
+    ATON.SceneHub.patchAnnot(E, ATON.SceneHub.MODE_ADD);
+    // ATON.Photon.fire("AFE_AddSceneEdit", E);
+    return true;
+};
+
 // Add/Edit/Finalize semantic shape
 HATHOR.popupAddSemantic = (semtype, esemid)=>{
     if (ATON._queryDataScene === undefined) return;
@@ -1425,6 +1451,11 @@ HATHOR.popupAddSemantic = (semtype, esemid)=>{
     let htmlcontent = HATHOR._createPopupStdSem(esemid);
 
     if (semtype === undefined) semtype = ATON.FE.SEMSHAPE_SPHERE;
+
+    if (semtype === ATON.FE.BRUSH_ANNOTATION){
+        HATHOR.addAnnotations();
+        return true;
+    }
 
     // Not yet a valid convex shape
     if (semtype === ATON.FE.SEMSHAPE_CONVEX && !ATON.SemFactory.bConvexBuilding) return;
@@ -1524,7 +1555,7 @@ HATHOR.popupAddSemantic = (semtype, esemid)=>{
 
             if (semtype === ATON.FE.SEMSHAPE_SPHERE) S = ATON.SemFactory.createSurfaceSphere(semid);
             if (semtype === ATON.FE.SEMSHAPE_CONVEX) S = ATON.SemFactory.completeConvexShape(semid);
-            // if (semtype === ATON.FE.SEMSHAPE_BRUSH)  S = ATON.SemFactory.createBrushShape(semid);
+            if (semtype === ATON.FE.SEMSHAPE_BRUSH)  S = ATON.AnnotFactory.completeBrushAnnot();
             if (S === undefined) return;
 
             let gSemXPF = ATON.XPFNetwork.getCurrentSemanticGroup();
@@ -1546,12 +1577,12 @@ HATHOR.popupAddSemantic = (semtype, esemid)=>{
         if (xxtmldescr && xxtmldescr.length>2) S.setDescription( xxtmldescr );
         if (vocnote) S.setAudio(vocnote);
         
-
+        // BRUSH UTILS
         let E = {};
         E.semanticgraph = {};
         E.semanticgraph.nodes = {};
         E.semanticgraph.nodes[S.nid] = {};
-
+        
         if (esemid === undefined){
             if (semtype === ATON.FE.SEMSHAPE_SPHERE) E.semanticgraph.nodes[S.nid].spheres = ATON.SceneHub.getJSONsemanticSpheresList(semid);
             if (semtype === ATON.FE.SEMSHAPE_CONVEX) E.semanticgraph.nodes[S.nid].convexshapes = ATON.SceneHub.getJSONsemanticConvexShapes(semid);

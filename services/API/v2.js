@@ -269,6 +269,112 @@ API.init = (app)=>{
     });
 
     /*===============================
+        ANNOTATIONS
+    ===============================*/
+
+    // New annot in already existing scene
+    app.post(API.BASE+"annot/:user/:usid", (req,res)=>{
+        // Skip authentication for now
+
+        let U = req.params.user;
+        let S = req.params.usid;
+
+        if (!U || !S){
+            res.send(false);
+            return;
+        }
+
+        let sid = U+"/"+S;
+
+        let ajsonpath = Core.getAnnotJSONPath(sid);
+
+        // Create new annotation json from current scene
+
+        if (fs.existsSync(ajsonpath)){
+            console.log("Annotation JSON already exists for scene: "+sid);
+            res.send(false);
+            return;
+        }
+        
+        let J = Core.createAnnotJSON(sid);
+        res.json(J); 
+    });
+
+    // Get JSON annotation descriptor
+    app.get(API.BASE+"annot/:user/:usid", (req,res)=>{
+        let U = req.params.user;
+        let S = req.params.usid;
+
+        if (!U || !S){
+            res.send(false);
+            return;
+        }
+
+        let sid = U+"/"+S;
+
+        let ajsonpath = Core.getAnnotJSONPath(sid);
+
+        if (fs.existsSync(ajsonpath)){
+            console.log("Request annot: "+sid);
+            return res.sendFile(ajsonpath);
+        }
+
+        res.send(false);
+    });
+
+    // Patch a JSON annotation descriptor
+    app.patch(API.BASE+"annot/:user/:usid", (req,res)=>{
+        // Only auth user can patch a scene
+        // BUT WE'LL DO THAT LATER
+        // if ( !Core.Auth.isUserAuth(req) ){
+        //     res.status(401).send(false);
+        //     return;
+        // }
+
+        // Add authentication mumbo jumbo when the time is right
+
+        let U = req.params.user;
+        let S = req.params.usid;
+
+        if (!U || !S){
+            console.log("Major fuck up")
+            res.send(false);
+            return;
+        }
+
+        let sid = U+"/"+S;
+
+        let O     = req.body;
+        let mode  = O.mode;
+        let patch = O.data;
+
+        if (!mode || !O.data){
+            res.send(false);
+            return;
+        }
+
+        let J = Core.applyAnnotEdit(sid, patch, mode);
+        res.json(J);
+    });
+
+    // Delete annotations for a scene
+    app.delete(API.BASE+"annot/:user/:usid", (req,res)=>{
+        // Add authentications later
+        let U = req.params.user;
+        let S = req.params.usid;
+
+        if (!U || !S){
+            res.send(false);
+            return;
+        }
+        
+        let sid = U+"/"+S;
+        
+        Core.deleteAnnot(sid);
+        res.send(true);
+    });
+    
+    /*===============================
         ITEMS (Collections)
     ===============================*/
     // 3D models list

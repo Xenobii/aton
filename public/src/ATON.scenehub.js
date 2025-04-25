@@ -120,10 +120,16 @@ SceneHub.clearSemantics = ()=>{
     ATON.AnnotFactory.init();
 };
 
+SceneHub.clearAnnotations = ()=>{
+    // TODO
+    return;
+};
+
 // Clears everything
 SceneHub.clear = ()=>{
     SceneHub.clearScene();
     SceneHub.clearSemantics();
+    SceneHub.clearAnnotations();
 
     ATON.clearLightProbes();
 
@@ -854,6 +860,57 @@ SceneHub.patch = (patch, mode, onComplete)=>{
             if (onComplete) onComplete();
         }
     });
+};
+
+// Send JSON patch to sever node for persistent modifications
+SceneHub.patchAnnot = (patch, mode, onComplete)=>{
+    // Fix this 
+    // if (SceneHub._bLoading || !SceneHub.bEdit) return;
+    if (patch === undefined) return;
+    if (mode === undefined) mode = SceneHub.MODE_ADD;
+
+    let sid = SceneHub.currID;
+
+    let O = {};
+    O.data = patch;
+    O.mode = (mode === SceneHub.MODE_DEL)? "DEL" : "ADD";
+    
+    let jstr = JSON.stringify(O);
+
+    // patch = null;
+    // O = null;
+
+    // Maybe make respective method for this
+    // ajsonpath = ATON.Core.getAnnotJSONPath(sid);
+    // if (!fs.existsSync(ajsonpath)){
+    console.log("No annotation JSON for "+sid);
+    ATON.Utils.postJSON(ATON.PATH_RESTAPI2+"annot/"+sid, O);
+    // $.ajax({
+    //     url: ATON.PATH_RESTAPI2+"annot/"+sid,
+    //     type: "POST",
+    //     data: jstr,
+    //     contentType: "application/json; charset=utf-8",
+    //     dataType:"json",
+
+    //     success: (r)=>{
+    //         console.log("Create annotation json for "+sid);
+    //     }
+    // })
+    // }
+    console.log("Patching annotation");
+    $.ajax({
+        url: ATON.PATH_RESTAPI2 + "annot/"+sid,
+        type: "PATCH",
+        data: jstr,
+        contentType: "application/json; charset=utf-8",
+        dataType:"json",
+
+        success: (r)=>{
+            if (r) SceneHub.currData = r;
+            if (onComplete) onComplete();
+            console.log("Patched annotation of "+sid);
+        }
+    })
 };
 
 // Previous name

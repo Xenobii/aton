@@ -12,12 +12,8 @@ AnnotFactory.FLOAT_PREC = 5;
 
 AnnotFactory.init = () => {
     AnnotFactory.bAnnotBuilding = false;
-
-    AnnotFactory.convexPoints = [];
-    AnnotFactory.currConvexPoints = [];
     
     AnnotFactory.convexShapes = [];
-    AnnotFactory.annotFaces = [];
     AnnotFactory.annotNode = undefined;
     AnnotFactory.currAnnotMesh = undefined;
 
@@ -26,19 +22,21 @@ AnnotFactory.init = () => {
     AnnotFactory.currSemNode.disablePicking();
     AnnotFactory.currSemNode.attachToRoot();
 
-    // // Brush tool state
-    AnnotFactory.currSelection = new Set(); // Track selected face IDs to avoid duplicates
+    // Brush tool state
+    AnnotFactory.currSelection = new Set();    // Track selected face IDs to avoid duplicates
     AnnotFactory.history = [];                 // Store undo history
     AnnotFactory.historyIndex = -1;  
 
-    AnnotFactory.resetMaterial();
-
     AnnotFactory.annotGroup = new THREE.Group();
     // AnnotFactory.annotGroup.clear();
-
+    
     AnnotFactory._numFaces = 0; // counter of faces produced
 
+    AnnotFactory.completedAnnotations = [];
+    
     AnnotFactory.brushRadius = 0.0005;
+    AnnotFactory.selectionSphere = null;
+    AnnotFactory.resetMaterial();
 };
 
 // Current material
@@ -138,9 +136,9 @@ Return true if currently building a convex annotation shape
 @returns {boolean}
 */
 AnnotFactory.isBuildingAnnot = () => {
-    if (AnnotFactory.annotGroup.children.length > 0) return true;
-
-    return false;
+    // if (AnnotFactory.annotGroup.children.length > 0) return true;
+    // placeholder HUGE BRAIN 5HEAD 9000 IQ LOGIC
+    return true;
 };
 
 // Face Selection
@@ -198,6 +196,17 @@ AnnotFactory.selectSingleFace = () => {
     return face;
 };
 
+AnnotFactory.completeBrushAnnot = ()=>{
+    AnnotFactory.bAnnotBuilding = false;
+
+    // Unlike sompleteConvexShape, instead of a SemNode, we will
+    // just save the selected faces 
+
+    AnnotFactory.completedAnnotations.push(AnnotFactory.currSelection);
+
+    AnnotFactory.stopCurrentAnnot();
+}
+
 /** 
 Select multiple faces no the object by shapecasting a sphere
 @returns {[{Int, [Vector3]}]} - Face index and vertices 
@@ -205,8 +214,8 @@ Select multiple faces no the object by shapecasting a sphere
 AnnotFactory.selectMultipleFaces = (brushSize = AnnotFactory.brushRadius) => {
     if (ATON._queryDataScene === undefined) return false;
 
-    const mesh     = ATON._queryDataScene.o;
-    const hitPoint = ATON._queryDataScene.p;
+    let mesh     = ATON._queryDataScene.o;
+    let hitPoint = ATON._queryDataScene.p;
 
     if (!mesh || !hitPoint) return false;
 
@@ -296,7 +305,6 @@ AnnotFactory.convertFacesToMesh = (faces) => {
     uniqueVertices.forEach(p => {
         AnnotFactory.currConvexPoints.push(p);
     });
-    let currNumVertices = AnnotFactory.currConvexPoints.length;
 
     // Create the mesh
     let geom = new THREE.ConvexGeometry(AnnotFactory.currConvexPoints);
@@ -323,10 +331,9 @@ AnnotFactory.convertFacesToMesh = (faces) => {
 };
 
 AnnotFactory.clearSelection = () => {
-    const mesh = ATON._queryDataScene?.o;
+    let mesh = ATON._queryDataScene?.o;
     if (mesh) AnnotFactory.clearFaceHighlights(mesh);
     AnnotFactory.currSelection.clear();
-    AnnotFactory.saveHistory(); // Save the cleared state
 };
 
 // Visualization
@@ -338,6 +345,31 @@ Highlight selected faces directly on the object by modifying vertex colors
 @param {Array} selectedFaces - Array of face data from selectMultipleFaces()
 @param {THREE.Color} color - Color to apply to selected faces
 */
+
+AnnotFactory.changeSUISphere = (bBrush=true, brushSize=AnnotFactory.brushRadius)=>{
+    if (bBrush) { 
+        ATON.SUI._mSelectorSphere.scale.setScalar(brushSize*5000);
+        ATON.SUI._mSelectorSphere.material.dispose();
+        ATON.SUI._mSelectorSphere.material = new THREE.MeshStandardMaterial({
+            color: 0xEC407A, // Pink color similar to the example
+            roughness: 0.75,
+            metalness: 0,
+            ransparent: true,
+            opacity: 0.5,
+            premultipliedAlpha: true,
+            emissive: 0xEC407A,
+            emissiveIntensity: 0.5,
+            wireframe: false
+        });
+        // change to mathub material
+    }
+    else {
+        ATON.SUI._mSelectorSphere.scale.setScalar(1);
+        ATON.SUI._mSelectorSphere.material.dispose();
+        ATON.SUI._mSelectorSphere.material = ATON.MatHub.getMaterial("selector")
+    }
+}
+
 AnnotFactory.highlightFacesOnObject = (mesh, selectedFaces, color = new THREE.Color(1, 0, 0)) => {
     if (!mesh || !selectedFaces || selectedFaces.length === 0) return false;
 
@@ -383,26 +415,34 @@ AnnotFactory.highlightFacesOnObject = (mesh, selectedFaces, color = new THREE.Co
 };
 
 AnnotFactory.toggleSelectionSphere = (visible=true, radius=AnnotFactory.brushRadius) => {
-    if (!ATON._queryDataScene.p) return;
-
     if(!AnnotFactory.selectionSpere) {
         let sphereGeometry = new THREE.SphereGeometry(radius, 16, 16);
-        let sphereMaterial = new THREE.MeshBasicMaterial({
-            color: 0xff0000,
+        let sphereMaterial = new THREE.MeshStandardMaterial({
+            color: 0xEC407A, // Pink color similar to the example
+            roughness: 0.75,
+            metalness: 0,
             transparent: true,
-            opacity: 0.3,
-            wireframe: true
+            opacity: 0.5,
+            premultipliedAlpha: true,
+            emissive: 0xEC407A,
+            emissiveIntensity: 0.5,
+            wireframe: false
         });
+        // Replace with Mathub material
         AnnotFactory.selectionSphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
         AnnotFactory.currSemNode.add(AnnotFactory.selectionSphere);
-
     }
-    AnnotFactory.selectionSphere.position.copy(ATON._queryDataScene.p);
-    AnnotFactory.selectionSphere.visible=visible;
+    
+    AnnotFactory.selectionSphere.visible = visible;
 
-    if (visible) {
-        AnnotFactory.selectionSpere.scale.set(radius, radius, radius);
+    // Update position if we have a hit point
+
+    if (visible && ATON._queryDataScene?.p) {
+        AnnotFactory.selectionSphere.position.copy(ATON._queryDataScene.p);
+        // AnnotFactory.selectionSphere.scale.setScalar(radius);
     }
+
+    // Enable/disable controls logic
 }; 
 
 /**
@@ -459,7 +499,6 @@ AnnotFactory.selectAndHighlightFaces = (brushSize = AnnotFactory.brushRadius, co
     AnnotFactory.highlightFacesOnObject(mesh, allFaces, color);
 
     // Save to history (for undo)
-    // AnnotFactory.saveHistory();
     return true;
 };
 
@@ -467,27 +506,15 @@ AnnotFactory.selectAndHighlightFaces = (brushSize = AnnotFactory.brushRadius, co
 // =======================================================
 
 AnnotFactory.lassoTool = () => {
-return false;
+    if (!ATON._queryDataScene?.o) return false;
+
+    let mesh     = ATON._queryDataScene.o;
+    let hitPoint = ATON._queryDataScene.p;
+
+    if (!mesh || !hitPoint) return false;
 };
 
 // History management
 // =======================================================
-
-/**
-Undo latest selection by removing last added mesh
-*/
-AnnotFactory.undoLastSelection = () => {
-    let childrenLength = AnnotFactory.annotGroup.children.length;
-    if (childrenLength === 0) return false;
-
-    let lastMesh = AnnotFactory.annotGroup.children[childrenLength - 1];
-    AnnotFactory.annotGroup.remove(lastMesh);
-
-    // Check if removing mesh is necessary
-
-    console.log("Undo successful");
-
-    return true;
-};
 
 export default AnnotFactory;
