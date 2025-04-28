@@ -431,6 +431,7 @@ SUI.createToolbar = (buttonlist, color, opacity, marginf=1.1)=>{
 
         justifyContent: 'center', // could be 'center' or 'left'
         textAlign: 'center',
+        contentDirection: 'row-reverse'
     });
     //cont.position.set(0,0,0);
 
@@ -440,8 +441,9 @@ SUI.createToolbar = (buttonlist, color, opacity, marginf=1.1)=>{
     for (let i=0; i<num; i++){
         let button = buttonlist[i];
         if (button){
+
             button.position.set(
-                (i*SUI.STD_BTN_SIZE*marginf) - m,
+                (i * SUI.STD_BTN_SIZE * marginf) - m, // *marginf
                 0.0,
                 0.005
             );
