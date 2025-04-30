@@ -34,7 +34,7 @@ AnnotFactory.init = () => {
 
     AnnotFactory.completedAnnotations = [];
     
-    AnnotFactory.brushRadius = 0.0005;
+    AnnotFactory.brushRadius = 1;
     AnnotFactory.selectionSphere = null;
     AnnotFactory.resetMaterial();
 };
@@ -220,13 +220,13 @@ AnnotFactory.selectMultipleFaces = (brushSize = AnnotFactory.brushRadius) => {
     if (!mesh || !hitPoint) return false;
 
     const geometry = mesh.geometry;
-    const selectedFaces = [];
+    let selectedFaces = [];
     const sphere = new THREE.Sphere();
     const inverseMatrix = new THREE.Matrix4();
 
     inverseMatrix.copy(mesh.matrixWorld).invert();
     sphere.center.copy(hitPoint).applyMatrix4(inverseMatrix);
-    sphere.radius = brushSize;
+    sphere.radius = brushSize*0.05;
 
     // ADD RAYCASTING LIMITATIONS (TO NOT CAST ON CONVEX GEOMETRIES)
 
@@ -279,7 +279,7 @@ AnnotFactory.selectMultipleFaces = (brushSize = AnnotFactory.brushRadius) => {
         }
     }
 
-    console.log(`Selected ${selectedFaces.length} faces with brush size ${brushSize}`);
+    // console.log(`Selected ${selectedFaces.length} faces with brush size ${brushSize}`);
     return selectedFaces;
 };
 
@@ -346,21 +346,38 @@ Highlight selected faces directly on the object by modifying vertex colors
 @param {THREE.Color} color - Color to apply to selected faces
 */
 
-AnnotFactory.changeSUISphere = (bBrush=true, brushSize=AnnotFactory.brushRadius)=>{
-    if (bBrush) { 
-        ATON.SUI._mSelectorSphere.scale.setScalar(brushSize*5000);
+AnnotFactory.changeSUISphere = (bBrush=true, bEraser=false)=>{
+    let brushSize=AnnotFactory.brushRadius
+    if (bBrush || bEraser) { 
+        ATON.SUI._mSelectorSphere.scale.setScalar(brushSize);
         ATON.SUI._mSelectorSphere.material.dispose();
-        ATON.SUI._mSelectorSphere.material = new THREE.MeshStandardMaterial({
-            color: 0xEC407A, // Pink color similar to the example
-            roughness: 0.75,
-            metalness: 0,
-            ransparent: true,
-            opacity: 0.5,
-            premultipliedAlpha: true,
-            emissive: 0xEC407A,
-            emissiveIntensity: 0.5,
-            wireframe: false
-        });
+        if (bBrush) {
+            ATON.SUI._mSelectorSphere.material = new THREE.MeshStandardMaterial({
+                color: 0x00ffff, 
+                roughness: 0.75,
+                metalness: 0,
+                transparent: true,
+                opacity: 0.5,
+                premultipliedAlpha: true,
+                emissive: 0xEC407A,
+                emissiveIntensity: 0.5,
+                wireframe: false
+            });
+        }
+        else {
+            ATON.SUI._mSelectorSphere.material = new THREE.MeshStandardMaterial({
+                color: 0x000000, 
+                roughness: 0.75,
+                metalness: 0,
+                transparent: true,
+                opacity: 0.5,
+                premultipliedAlpha: true,
+                emissive: 0xEC407A,
+                emissiveIntensity: 0.5,
+                wireframe: false
+            });
+        }
+        
         // change to mathub material
     }
     else {
@@ -370,7 +387,7 @@ AnnotFactory.changeSUISphere = (bBrush=true, brushSize=AnnotFactory.brushRadius)
     }
 }
 
-AnnotFactory.highlightFacesOnObject = (mesh, selectedFaces, color = new THREE.Color(1, 0, 0)) => {
+AnnotFactory.highlightFacesOnObject = (mesh, selectedFaces, color = new THREE.Color().setHex(0x00ffff)) => {
     if (!mesh || !selectedFaces || selectedFaces.length === 0) return false;
 
     let geometry = mesh.geometry;
@@ -414,36 +431,43 @@ AnnotFactory.highlightFacesOnObject = (mesh, selectedFaces, color = new THREE.Co
     return true;
 };
 
-AnnotFactory.toggleSelectionSphere = (visible=true, radius=AnnotFactory.brushRadius) => {
-    if(!AnnotFactory.selectionSpere) {
-        let sphereGeometry = new THREE.SphereGeometry(radius, 16, 16);
-        let sphereMaterial = new THREE.MeshStandardMaterial({
-            color: 0xEC407A, // Pink color similar to the example
-            roughness: 0.75,
-            metalness: 0,
-            transparent: true,
-            opacity: 0.5,
-            premultipliedAlpha: true,
-            emissive: 0xEC407A,
-            emissiveIntensity: 0.5,
-            wireframe: false
-        });
-        // Replace with Mathub material
-        AnnotFactory.selectionSphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-        AnnotFactory.currSemNode.add(AnnotFactory.selectionSphere);
-    }
-    
-    AnnotFactory.selectionSphere.visible = visible;
+/**
+ * Clear highlights on specific faces (reset them to white)
+ * @param {Object} mesh - The target mesh
+ * @param {Array} faces - Array of face data to clear
+ */
+AnnotFactory.clearFaceHighlightsOnFaces = (mesh, faces) => {
+    if (!mesh || !mesh.geometry.attributes.color || !faces.length) return false;
 
-    // Update position if we have a hit point
+    let colorAttr = mesh.geometry.attributes.color;
+    let indexAttr = mesh.geometry.index;
 
-    if (visible && ATON._queryDataScene?.p) {
-        AnnotFactory.selectionSphere.position.copy(ATON._queryDataScene.p);
-        // AnnotFactory.selectionSphere.scale.setScalar(radius);
-    }
+    faces.forEach(face => {
+        if (indexAttr) {
+            // Indexed geometry
+            const indices = indexAttr.array;
+            const faceIndex = face.index;
+            
+            const a = indices[faceIndex * 3];
+            const b = indices[faceIndex * 3 + 1];
+            const c = indices[faceIndex * 3 + 2];
 
-    // Enable/disable controls logic
-}; 
+            colorAttr.setXYZ(a, 1, 1, 1); // Reset to white
+            colorAttr.setXYZ(b, 1, 1, 1);
+            colorAttr.setXYZ(c, 1, 1, 1);
+        } else {
+            // Non-indexed geometry
+            const faceStart = face.index * 9;
+            for (let i = 0; i < 3; i++) {
+                const vertexIndex = faceStart + (i * 3);
+                colorAttr.setXYZ(vertexIndex, 1, 1, 1); // Reset to white
+            }
+        }
+    });
+
+    colorAttr.needsUpdate = true;
+    return true;
+};
 
 /**
  * Clear face highlights from the object
@@ -471,7 +495,7 @@ AnnotFactory.clearFaceHighlights = (mesh) => {
  * @param {number} brushSize - Size of the selection brush
  * @param {THREE.Color} color - Color to apply to selected faces
  */
-AnnotFactory.selectAndHighlightFaces = (brushSize = AnnotFactory.brushRadius, color = new THREE.Color(1, 0, 0)) => {
+AnnotFactory.brushTool = (brushSize = AnnotFactory.brushRadius, color = new THREE.Color().setHex(0x00ffff)) => {
     if (!ATON._queryDataScene?.o) return false;
     let mesh = ATON._queryDataScene.o;
 
@@ -486,6 +510,7 @@ AnnotFactory.selectAndHighlightFaces = (brushSize = AnnotFactory.brushRadius, co
     let newUniqueFaces = newFaces.filter(face => 
         !AnnotFactory.currSelection.has(face.index)
     );
+    if (!newUniqueFaces.length) return false;
 
     // Add to current selection
     newUniqueFaces.forEach(face => {
@@ -498,7 +523,35 @@ AnnotFactory.selectAndHighlightFaces = (brushSize = AnnotFactory.brushRadius, co
     );
     AnnotFactory.highlightFacesOnObject(mesh, allFaces, color);
 
-    // Save to history (for undo)
+    return true;
+};
+
+// Eraser tool
+AnnotFactory.eraserTool = (brushSize = AnnotFactory.brushRadius) => {
+    if (!ATON._queryDataScene?.o) return false;
+    let mesh = ATON._queryDataScene.o;
+
+    mesh.material.vertexColors = true;
+    mesh.material.needsUpdate = true;
+
+    // Get newly selected faces
+    let newFaces = AnnotFactory.selectMultipleFaces(brushSize);
+    if (!newFaces.length) return false;
+
+    // Skip already selected faces
+    let newUniqueFaces = newFaces.filter(face => 
+        AnnotFactory.currSelection.has(face.index)
+    );
+    if (!newUniqueFaces.length) return false;
+
+    // Reset the erased faces to white (or their original color if available)
+    AnnotFactory.clearFaceHighlightsOnFaces(mesh, newUniqueFaces);
+
+    // Remove from current selection
+    newUniqueFaces.forEach(face => {
+        AnnotFactory.currSelection.delete(face.index);
+    });
+
     return true;
 };
 

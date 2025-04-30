@@ -21,7 +21,8 @@ HATHOR.SELACTION_STD            = 0;
 HATHOR.SELACTION_ADDSPHERESHAPE = 1;
 HATHOR.SELACTION_ADDCONVEXPOINT = 2;
 HATHOR.SELACTION_MEASURE        = 3;
-HATHOR.SELACTION_BRUSH          = 4; //NEW
+HATHOR.SELACTION_BRUSH          = 4;
+HATHOR.SELACTION_ERASER         = 5;
 
 
 // Set SceneID to load
@@ -86,6 +87,7 @@ HATHOR.setup = ()=>{
     HATHOR._cPOVind = undefined;
     HATHOR._povs = [];
     HATHOR._povLoopD = undefined;
+    HATHOR._pauseAnnot = false;
 
     HATHOR.uiSetup();
     HATHOR.suiSetup();
@@ -142,8 +144,13 @@ HATHOR.update = ()=>{
     }
 */
     if (!ATON.FE._bPopup){
-        if (HATHOR._actState === HATHOR.SELACTION_BRUSH && ATON._bPointerDown) {
-            ATON.AnnotFactory.selectAndHighlightFaces();
+        if (HATHOR._actState === HATHOR.SELACTION_BRUSH && ATON._bLeftMouseDown) {
+            if (!HATHOR._pauseAnnot) ATON.AnnotFactory.brushTool();
+        }
+    }
+    if (!ATON.FE._bPopup){
+        if (HATHOR._actState === HATHOR.SELACTION_ERASER && ATON._bLeftMouseDown) {
+            if (!HATHOR._pauseAnnot) ATON.AnnotFactory.eraserTool();
         }
     }
 };
@@ -199,8 +206,6 @@ HATHOR.setSelectionMode = (m)=>{
         ATON.getUINode("sui_measure").switch(true);
     }
 
-    // MORE ANNOTATION EDITS
-
     if (m === HATHOR.SELACTION_BRUSH){
         $("#btn-ann-brush").addClass("atonBTN-rec");
         $("#btn-ann-sphere").removeClass("atonBTN-rec");
@@ -209,6 +214,9 @@ HATHOR.setSelectionMode = (m)=>{
         
         ATON.getUINode("sui_brush").switch(true);
     }
+
+    // if (m === HATHOR.SELACTION_ERASER){
+    // }
 };
 
 // Hathor UI buttons
@@ -931,10 +939,9 @@ HATHOR.setupEventHandlers = ()=>{
         }
         // (brushutils)
         //incomplete
-        if (HATHOR._actState === HATHOR.SELACTION_BRUSH){ 
-            let f = ATON.SemFactory.selectFace();
-            ATON.SemFactory.addSelectedFace(f);
-        }
+        if (HATHOR._actState === HATHOR.SELACTION_BRUSH){
+
+        };
     });
 /*
     ATON.on("DoubleTap", (e)=>{
@@ -979,8 +986,13 @@ HATHOR.setupEventHandlers = ()=>{
         if (k === 'Escape') HATHOR.cancelCurrentTask();
 
         // Modifiers
-        if (k ==="Shift")  ATON.Nav.setUserControl(false);
-        if (k==="Control") ATON.Nav.setUserControl(false);
+        if (k ==="Alt") {
+            if (HATHOR._actState === HATHOR.SELACTION_BRUSH || HATHOR._actState === HATHOR.SELACTION_ERASER) { 
+                HATHOR._pauseAnnot = true;
+                ATON.Nav.setUserControl(true);
+            }
+        } 
+        if (k==="Shift") ATON.Nav.setUserControl(false);
 
         if (k === 'y'){
             //ATON.Utils.updateTSetsCamera();
@@ -1005,8 +1017,16 @@ HATHOR.setupEventHandlers = ()=>{
         }
 
         if (k === '['){
+            if (HATHOR._actState === HATHOR.SELACTION_BRUSH || HATHOR._actState === HATHOR.SELACTION_ERASER) {
+                if (ATON.AnnotFactory.brushRadius >= 1) ATON.AnnotFactory.brushRadius -= 1;
+                ATON.AnnotFactory.changeSUISphere();
+            }
         }
         if (k === ']'){
+            if (HATHOR._actState === HATHOR.SELACTION_BRUSH || HATHOR._actState === HATHOR.SELACTION_ERASER) {
+                ATON.AnnotFactory.brushRadius += 1;
+                ATON.AnnotFactory.changeSUISphere();
+            }
         }
 
         //if (k==='w'){
@@ -1022,26 +1042,40 @@ HATHOR.setupEventHandlers = ()=>{
             ATON.SemFactory.addSurfaceConvexPoint();
         }
 
-        if (k==='e'){
-            let esemid = ATON._hoveredSemNode;
-            if (esemid !== undefined) HATHOR.popupAddSemantic(undefined, esemid);
-            else HATHOR.popupEnvironment();
-        }
+        // if (k==='e'){
+        //     let esemid = ATON._hoveredSemNode;
+        //     if (esemid !== undefined) HATHOR.popupAddSemantic(undefined, esemid);
+        //     else HATHOR.popupEnvironment();
+        // }
 
         if (k==='m') HATHOR.measure();
 
         if (k==='c') ATON.FE.popupScreenShot();
-
-        // if (k==='b') ATON.SUI.showSelector( !ATON.SUI._bShowSelector );
-        // Who cares we replace it entirely
         
         // brushutils
         if (k==='b') {
-            // TODO: implement fully
-            // let faces = ATON.AnnotFactory.selectMultipleFaces()
-            // ATON.AnnotFactory.convertFacesToMesh(faces)
+            // Enable brush tool
+            if (HATHOR._actState !== HATHOR.SELACTION_BRUSH){
+                HATHOR.setSelectionMode(HATHOR.SELACTION_BRUSH);
+                ATON.Nav.setUserControl(false);
+                ATON.AnnotFactory.changeSUISphere(true, false);
+            }
+            else {
+                ATON.AnnotFactory.changeSUISphere(false, false);
+                HATHOR.resetSelectionMode();
+            }
+        }
 
-            ATON.AnnotFactory.selectAndHighlightFaces();
+        if (k==='e') {
+            if (HATHOR._actState !== HATHOR.SELACTION_ERASER){
+                HATHOR.setSelectionMode(HATHOR.SELACTION_ERASER);
+                ATON.Nav.setUserControl(false);
+                ATON.AnnotFactory.changeSUISphere(false, true);
+            }
+            else {
+                ATON.AnnotFactory.changeSUISphere(false, false);
+                HATHOR.resetSelectionMode();
+            }
         }
 
         if (k==='#'){
@@ -1062,15 +1096,6 @@ HATHOR.setupEventHandlers = ()=>{
 
         if (k==='p'){
             HATHOR.addLightProbe();
-        }
-
-        // Change to ctr z obviously
-        if (k==='z'){
-            ATON.AnnotFactory.changeSUISphere(true);
-        }
-
-        if (k==='y'){
-            ATON.AnnotFactory.changeSUISphere(false);
         }
 
 /*
@@ -1179,8 +1204,13 @@ HATHOR.setupEventHandlers = ()=>{
 
         if (k==='.') ATON.FE.controlSelectorScale(false);
 
+        if (k==="Alt") {
+            if (HATHOR._actState === HATHOR.SELACTION_BRUSH || HATHOR._actState === HATHOR.SELACTION_ERASER) {
+                HATHOR._pauseAnnot = false;
+                ATON.Nav.setUserControl(false);
+            }
+        }
         if (k==="Shift") ATON.Nav.setUserControl(true);
-        if (k==="Control") ATON.Nav.setUserControl(true);
     });
 
     ATON.on("MainPanoVideo", ()=>{
@@ -1260,7 +1290,10 @@ HATHOR.measure = ()=>{
 };
 
 HATHOR.switchUserScale = ()=>{
-    if (ATON._ws === 0) ATON.setUserScaleLevel(ATON.SCALE_BIG);
+    if (ATON._ws === 0) {
+        ATON.setUserScaleLevel(ATON.SCALE_BIG);
+        console.log("we big now")
+    }
     else ATON.setUserScaleLevel(ATON.SCALE_DEFAULT);
 };
 

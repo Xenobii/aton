@@ -373,6 +373,11 @@ API.init = (app)=>{
         Core.deleteAnnot(sid);
         res.send(true);
     });
+
+    // Create new annoatation scene
+    app.post(API.BASE+"annotscene/:user/:usid", (req,res)=>{
+        
+    });
     
     /*===============================
         ITEMS (Collections)

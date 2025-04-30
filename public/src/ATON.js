@@ -323,14 +323,26 @@ ATON._setupBaseListeners = ()=>{
         }
     }, false);
 
+    ATON._bLeftMouseDown = false;
 
     el.addEventListener( 'mousemove', ATON._updateScreenMove, false );
     ///el.addEventListener('dblclick', ATON._doubleTap, false);
 
     el.addEventListener('mousedown', (e)=>{
+        if (e.button === 0) {
+            ATON._bLeftMouseDown = true;
+            ATON.fire("MouseLeftButtonDown");
+        }
         if (e.button === 1) ATON.fire("MouseMidButton");      // middle-click
         if (e.button === 2) ATON.fire("MouseRightButton");    // right-click
     });
+
+    el.addEventListener('mouseup', (e)=>{
+        if (e.button === 0) {
+            ATON._bLeftMouseDown = false;
+            ATON.fire("MouseLeftButtonUp");
+        }
+    })
 
     el.addEventListener( 'wheel', ATON._onMouseWheel, false );
 
