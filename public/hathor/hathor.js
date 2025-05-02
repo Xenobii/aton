@@ -992,11 +992,7 @@ HATHOR.setupEventHandlers = ()=>{
                 ATON.Nav.setUserControl(true);
             }
         } 
-        if (k==="Shift") ATON.Nav.setUserControl(false);
-
-        if (k === 'y'){
-            //ATON.Utils.updateTSetsCamera();
-        }
+        // if (k==="Shift") ATON.Nav.setUserControl(false);
 
         if (k === 'g') HATHOR.popupGraphs();
 
@@ -1053,6 +1049,9 @@ HATHOR.setupEventHandlers = ()=>{
         if (k==='c') ATON.FE.popupScreenShot();
         
         // brushutils
+
+        // TODO: 
+        // Include capital lette detection lol
         if (k==='b') {
             // Enable brush tool
             if (HATHOR._actState !== HATHOR.SELACTION_BRUSH){
@@ -1065,6 +1064,16 @@ HATHOR.setupEventHandlers = ()=>{
                 HATHOR.resetSelectionMode();
             }
         }
+
+        // Undo
+        if (k==='z') {
+            if (ATON._kModCtrl) ATON.AnnotFactory.undo();
+        }
+        // Redo
+        if (k === 'y'){
+            if (ATON._kModCtrl) ATON.AnnotFactory.redo();
+        }
+
 
         if (k==='e') {
             if (HATHOR._actState !== HATHOR.SELACTION_ERASER){
@@ -1163,6 +1172,13 @@ HATHOR.setupEventHandlers = ()=>{
         //if (k==='.') ATON.FE.controlSelectorScale(true);
     });
 
+    // Annotation history utils - save previous state when performing an action
+    ATON.on("MouseLeftButtonDown", ()=>{
+        if (HATHOR._actState === HATHOR.SELACTION_BRUSH || HATHOR._actState === HATHOR.SELACTION_ERASER) {
+            ATON.AnnotFactory.recordState();
+        }
+    })
+
     ATON.on("KeyUp",(k)=>{
         if (k==='w'){
             ATON.Nav.stop();
@@ -1210,7 +1226,7 @@ HATHOR.setupEventHandlers = ()=>{
                 ATON.Nav.setUserControl(false);
             }
         }
-        if (k==="Shift") ATON.Nav.setUserControl(true);
+        // if (k==="Shift") ATON.Nav.setUserControl(true);
     });
 
     ATON.on("MainPanoVideo", ()=>{

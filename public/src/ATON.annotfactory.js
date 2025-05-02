@@ -24,9 +24,9 @@ AnnotFactory.init = () => {
 
     // Brush tool state
     AnnotFactory.currSelection = new Set();    // Track selected face IDs to avoid duplicates
-    AnnotFactory.history = [];                 // Store undo history
-    AnnotFactory.historyIndex = -1;  
-
+    
+    AnnotFactory.initHistory();
+    
     AnnotFactory.annotGroup = new THREE.Group();
     // AnnotFactory.annotGroup.clear();
     
@@ -139,6 +139,28 @@ AnnotFactory.isBuildingAnnot = () => {
     // if (AnnotFactory.annotGroup.children.length > 0) return true;
     // placeholder HUGE BRAIN 5HEAD 9000 IQ LOGIC
     return true;
+};
+
+AnnotFactory.setsAreEqual = (a, b) => {
+    if (a.size !== b.size) return false;
+    // Statistically overkill 
+    // for (const item of a) if (!b.has(item)) return false;
+    return true;
+}
+
+// TRANSFER THE QUERYING LOGIC TO SINGLE INIT FUNCTION LATER
+AnnotFactory.applySelectionToMesh = () =>{
+    if (!ATON._queryDataScene?.o) return false;
+    let mesh = ATON._queryDataScene.o;
+
+    AnnotFactory.clearFaceHighlights(mesh);
+    
+    let faces = Array.from(AnnotFactory.currSelection).map(index =>
+        AnnotFactory.extractFaceData(mesh.geometry, index)
+    );
+    
+    AnnotFactory.highlightFacesOnObject(mesh, faces);
+    return;
 };
 
 // Face Selection
@@ -426,10 +448,11 @@ AnnotFactory.highlightFacesOnObject = (mesh, selectedFaces, color = new THREE.Co
             }
         }
     });
-
+    
     colorAttr.needsUpdate = true;
     return true;
 };
+
 
 /**
  * Clear highlights on specific faces (reset them to white)
@@ -569,5 +592,61 @@ AnnotFactory.lassoTool = () => {
 
 // History management
 // =======================================================
+
+AnnotFactory.initHistory = ()=>{
+    AnnotFactory.undoStack = [];
+    AnnotFactory.redoStack = [];
+
+    AnnotFactory.maxSteps = 10;
+    // Add step limit logic
+};
+
+// Helper function - return clone of current selection
+AnnotFactory._saveSelectionState = () =>{
+    return new Set(AnnotFactory.currSelection); // Clone current selection
+};
+
+AnnotFactory.recordState = () =>{
+    // If last selection is the same return
+
+    // TODO:
+    // IMPLEMENT ERASER TO BE CLEAR ALL + REAPPLY CURRENT
+    // FIX THIS MESS HERE
+
+    let lastSelection = AnnotFactory.undoStack[AnnotFactory.undoStack.length -1];
+
+    if (lastSelection === undefined) lastSelection = []; 
+
+    if (AnnotFactory.setsAreEqual(lastSelection, AnnotFactory.currSelection)) {
+        console.log("Same selection")
+        return;
+    }
+
+    AnnotFactory.undoStack.push(AnnotFactory._saveSelectionState());
+    AnnotFactory.redoStack = [];
+};
+
+AnnotFactory.undo = ()=>{
+    if (AnnotFactory.undoStack.length === 0) {
+        return;
+    }
+    // Save current state to redo stakck first
+    AnnotFactory.redoStack.push(AnnotFactory._saveSelectionState());
+
+    // Restore previous state
+    AnnotFactory.currSelection = AnnotFactory.undoStack.pop();
+    AnnotFactory.applySelectionToMesh();
+};
+
+AnnotFactory.redo = () => {
+    if (AnnotFactory.redoStack.length === 0) return;
+
+    // Save current state to undo stack first
+    AnnotFactory.undoStack.push(AnnotFactory._saveSelectionState());
+
+    // Restore next state
+    AnnotFactory.currSelection = AnnotFactory.redoStack.pop();
+    AnnotFactory.applySelectionToMesh();
+};
 
 export default AnnotFactory;
