@@ -1014,14 +1014,16 @@ HATHOR.setupEventHandlers = ()=>{
 
         if (k === '['){
             if (HATHOR._actState === HATHOR.SELACTION_BRUSH || HATHOR._actState === HATHOR.SELACTION_ERASER) {
-                if (ATON.AnnotFactory.brushRadius >= 1) ATON.AnnotFactory.brushRadius -= 1;
-                ATON.AnnotFactory.changeSUISphere();
+                if (ATON.AnnotFactory.brushRadius >= 0) ATON.AnnotFactory.brushRadius *= 0.8;
+                if (HATHOR._actState === HATHOR.SELACTION_BRUSH) ATON.AnnotFactory.changeSUISphere(true, true);
+                else ATON.AnnotFactory.changeSUISphere(false, true);
             }
         }
         if (k === ']'){
             if (HATHOR._actState === HATHOR.SELACTION_BRUSH || HATHOR._actState === HATHOR.SELACTION_ERASER) {
-                ATON.AnnotFactory.brushRadius += 1;
-                ATON.AnnotFactory.changeSUISphere();
+                ATON.AnnotFactory.brushRadius *= 1.2;
+                if (HATHOR._actState === HATHOR.SELACTION_BRUSH) ATON.AnnotFactory.changeSUISphere(true, true);
+                else ATON.AnnotFactory.changeSUISphere(false, true);
             }
         }
 

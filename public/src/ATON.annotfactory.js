@@ -1,3 +1,5 @@
+import { THREE } from "../../../artemis-web-main/lib/libs";
+
 /*
     ATON Annotation Factory
 
@@ -10,45 +12,55 @@ let AnnotFactory = {};
 
 AnnotFactory.FLOAT_PREC = 5;
 
-AnnotFactory.init = () => {
+AnnotFactory.init = async () => {
     AnnotFactory.bAnnotBuilding = false;
     
-    AnnotFactory.convexShapes = [];
-    AnnotFactory.annotNode = undefined;
+    AnnotFactory.annotNode     = undefined;
     AnnotFactory.currAnnotMesh = undefined;
-
-    // Temp sem node to hold developing annotation mesh
-    AnnotFactory.currSemNode = ATON.createSemanticNode();
-    AnnotFactory.currSemNode.disablePicking();
-    AnnotFactory.currSemNode.attachToRoot();
-
+    
     // Brush tool state
     AnnotFactory.currSelection = new Set();    // Track selected face IDs to avoid duplicates
-    
+
+    await AnnotFactory.initQuerying();
+
     AnnotFactory.initHistory();
     
-    AnnotFactory.annotGroup = new THREE.Group();
-    // AnnotFactory.annotGroup.clear();
-    
-    AnnotFactory._numFaces = 0; // counter of faces produced
-
     AnnotFactory.completedAnnotations = [];
     
-    AnnotFactory.brushRadius = 1;
-    AnnotFactory.selectionSphere = null;
-    AnnotFactory.resetMaterial();
+    // This only works with async
+    AnnotFactory.STD_SEL_RAD = ATON.SUI.getSelectorRadius();
+    AnnotFactory.brushRadius = AnnotFactory.STD_SEL_RAD;
+
+    // Used colors
+    AnnotFactory.highlightColor = ATON.MatHub.colors.green;
+    AnnotFactory.defaultColor   = ATON.MatHub.colors.white;
+    AnnotFactory.brushColor     = ATON.MatHub.colors.green;
+    AnnotFactory.eraserColor    = ATON.MatHub.colors.orange;
+
+    AnnotFactory.clearFaceHighlights();
 };
 
-// Current material
-// =======================================================
+AnnotFactory.initQuerying = async () => {
+    // Polling for modularity 
+    while (!ATON._queryDataScene?.o) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    // we only have one object in the annotation scene
+    AnnotFactory.mainMesh     = ATON._queryDataScene.o;
+    AnnotFactory.mainGeometry = AnnotFactory.mainMesh.geometry;
 
-AnnotFactory.resetMaterial = () => {
-    AnnotFactory.currMaterial = ATON.MatHub.getMaterial("semanticShapeHL"); // current sem material we are using. Was "semanticShape"
-};
+    AnnotFactory.mainMesh.material.vertexColors = true;
+    AnnotFactory.mainMesh.material.needsUpdate  = true;
 
-AnnotFactory.setMaterial = (m) => {
-    if (m === undefined) return;
-    AnnotFactory.currMaterial = m;
+    if (!AnnotFactory.mainGeometry.attributes.color) {
+        // Initialize vertex colors if they don't exist
+        console.log("Initializing color");
+        const colorArray = new Float32Array(AnnotFactory.mainGeometry.attributes.position.count * 3);
+        colorArray.fill(AnnotFactory.defaultColor); // Default white color
+        const colorAttr = new THREE.BufferAttribute(colorArray, 3);
+        AnnotFactory.mainGeometry.setAttribute('color', colorAttr);
+    }
+
 };
 
 // Utils
@@ -58,7 +70,9 @@ AnnotFactory.setMaterial = (m) => {
 Extract Data from a specific face
 @returns {[Int, [Vector3], [Vector3]]} - Face id, indicies and vertices
 */
-AnnotFactory.extractFaceData = (geometry, faceIndex) => {
+AnnotFactory.extractFaceData = (faceIndex, geometry) => {
+    if (!geometry) geometry = AnnotFactory.mainGeometry;
+
     let face = { index: faceIndex, vertices: [] };
 
     if (geometry.index) {
@@ -122,13 +136,7 @@ Cancel current annot semantic shape, if building one
 */
 AnnotFactory.stopCurrentAnnot = () => {
     if (!AnnotFactory.bAnnotBuilding) return;
-
-    AnnotFactory.convexPoints = [];
-    AnnotFactory.bAnnotBuilding = false;
-    AnnotFactory.annotGroup.clear();
-
-    AnnotFactory.currSemNode.removeChildren();
-    ATON.SUI.gPoints.removeChildren();
+    // complete
 };
 
 /**
@@ -148,18 +156,18 @@ AnnotFactory.setsAreEqual = (a, b) => {
     return true;
 }
 
-// TRANSFER THE QUERYING LOGIC TO SINGLE INIT FUNCTION LATER
-AnnotFactory.applySelectionToMesh = () =>{
-    if (!ATON._queryDataScene?.o) return false;
-    let mesh = ATON._queryDataScene.o;
+AnnotFactory.applySelectionToMesh = (mesh) =>{
+    if (!mesh) mesh = AnnotFactory.mainMesh;
+
+    mesh.material.vertexColors = true;
 
     AnnotFactory.clearFaceHighlights(mesh);
     
     let faces = Array.from(AnnotFactory.currSelection).map(index =>
-        AnnotFactory.extractFaceData(mesh.geometry, index)
+        AnnotFactory.extractFaceData(index, mesh.geometry)
     );
     
-    AnnotFactory.highlightFacesOnObject(mesh, faces);
+    AnnotFactory.highlightFacesOnObject(faces, mesh);
     return;
 };
 
@@ -167,56 +175,10 @@ AnnotFactory.applySelectionToMesh = () =>{
 // ======================================================
 
 /**
-Get a unique vertices list from a set of faces 
-*/
-AnnotFactory.getUniqueVertices = (faces) => {
-    if (faces === undefined || faces === false) return false;
-
-    // Get all vertices with non-duplicates
-    let verticeMap = new Map();
-    let uniqueVertices = [];
-
-    faces.forEach(face => {
-        if (!face.vertices || face.vertices.length !== 3) return;
-
-        face.vertices.forEach(vertex => {
-            // Create key with its coordinates
-            let key = `${vertex.x.toFixed(6)},${vertex.y.toFixed},${vertex.x.toFixed(6)}`;
-
-            if (!verticeMap.has(key)) {
-                verticeMap.set(key, uniqueVertices.length);
-                uniqueVertices.push(vertex.clone());
-            }
-        });
-    });
-
-    console.log(`Extracted ${uniqueVertices.length} unique vertices from ${faces.length} faces`);
-
-    return uniqueVertices;
-};
-
-/**
 Select a single specific face of an object via ray-casting
 Log the face id and defining vertices
 @returns {{Int, [Vector3]}} - Face index and vertices 
 */
-AnnotFactory.selectSingleFace = () => {
-    if (ATON._queryDataScene === undefined) return false;
-
-    let mesh = ATON._queryDataScene.o;
-    let fid  = ATON._queryDataScene.f;
-
-    if (!mesh || fid === undefined) return false;
-
-    let geometry = mesh.geometry;
-
-    face = AnnotFactory.extractFaceData(geometry, fid);
-
-    console.log("Selected face id: ", face.index);
-    console.log("Selected face vertices: ", face.vertices);
-
-    return face;
-};
 
 AnnotFactory.completeBrushAnnot = ()=>{
     AnnotFactory.bAnnotBuilding = false;
@@ -233,13 +195,12 @@ AnnotFactory.completeBrushAnnot = ()=>{
 Select multiple faces no the object by shapecasting a sphere
 @returns {[{Int, [Vector3]}]} - Face index and vertices 
 */
-AnnotFactory.selectMultipleFaces = (brushSize = AnnotFactory.brushRadius) => {
-    if (ATON._queryDataScene === undefined) return false;
+AnnotFactory.selectMultipleFaces = (brushSize, mesh) => {
+    if (!mesh) mesh = AnnotFactory.mainMesh;
 
-    let mesh     = ATON._queryDataScene.o;
     let hitPoint = ATON._queryDataScene.p;
 
-    if (!mesh || !hitPoint) return false;
+    if (!hitPoint) return false;
 
     const geometry = mesh.geometry;
     let selectedFaces = [];
@@ -248,9 +209,7 @@ AnnotFactory.selectMultipleFaces = (brushSize = AnnotFactory.brushRadius) => {
 
     inverseMatrix.copy(mesh.matrixWorld).invert();
     sphere.center.copy(hitPoint).applyMatrix4(inverseMatrix);
-    sphere.radius = brushSize*0.05;
-
-    // ADD RAYCASTING LIMITATIONS (TO NOT CAST ON CONVEX GEOMETRIES)
+    sphere.radius = brushSize;
 
     if (geometry.boundsTree) {
         geometry.boundsTree.shapecast({
@@ -280,7 +239,7 @@ AnnotFactory.selectMultipleFaces = (brushSize = AnnotFactory.brushRadius) => {
             },
             intersectsTriangle: (tri, faceIndex, contained) => {
                 if (contained || tri.intersectsSphere(sphere)) {
-                    selectedFaces.push(AnnotFactory.extractFaceData(geometry, faceIndex));
+                    selectedFaces.push(AnnotFactory.extractFaceData(faceIndex, geometry));
                 }
                 return false;
             }
@@ -291,7 +250,7 @@ AnnotFactory.selectMultipleFaces = (brushSize = AnnotFactory.brushRadius) => {
         if (geometry.index) {
             const triangleCount = geometry.index.array.length / 3;
             for (let i = 0; i < triangleCount; i++) {
-                const triangle = AnnotFactory.extractFaceData(geometry, i);
+                const triangle = AnnotFactory.extractFaceData(i, geometry);
                 const tri = new THREE.Triangle(...triangle.vertices);
 
                 if (tri.intersectsSphere(sphere)) {
@@ -301,61 +260,7 @@ AnnotFactory.selectMultipleFaces = (brushSize = AnnotFactory.brushRadius) => {
         }
     }
 
-    // console.log(`Selected ${selectedFaces.length} faces with brush size ${brushSize}`);
     return selectedFaces;
-};
-
-// Semantic utils
-// ======================================================
-/**
-Converts faces to mesh
-@param faces 
-@returns {Mesh} - faceMesh
-*/
-AnnotFactory.convertFacesToMesh = (faces) => {
-    // See SemFactory.addConvexPoint
-    if (faces === undefined || faces === false) return false;
-    
-    if (AnnotFactory.currConvexPoints) {
-        AnnotFactory.currConvexPoints = [];
-    };
-
-    // Get uniqueVertices
-    let uniqueVertices = AnnotFactory.getUniqueVertices(faces);
-    
-    // Push to currConvexPoints
-    uniqueVertices.forEach(p => {
-        AnnotFactory.currConvexPoints.push(p);
-    });
-
-    // Create the mesh
-    let geom = new THREE.ConvexGeometry(AnnotFactory.currConvexPoints);
-    let currSemesh = new THREE.Mesh(geom, ATON.MatHub.getMaterial("semanticShapeEdit"));
-    
-    // Add to Group, add group to semNode 
-    // Adding to SemNode is necessary for visibility
-    
-    // First item
-    if (AnnotFactory.annotGroup.children.length === 0) {
-        AnnotFactory.annotGroup.add(currSemesh);
-        AnnotFactory.currSemNode.add(AnnotFactory.annotGroup);
-        AnnotFactory.bAnnotBuilding = true;
-    }
-    else {
-        AnnotFactory.annotGroup.add(currSemesh);
-        AnnotFactory.currSemNode.removeChildren();
-        AnnotFactory.currSemNode.add(AnnotFactory.annotGroup);
-    }
-    // Create method for storing and DISPLAYING annotations without
-    // userData storage
-    
-    return true;
-};
-
-AnnotFactory.clearSelection = () => {
-    let mesh = ATON._queryDataScene?.o;
-    if (mesh) AnnotFactory.clearFaceHighlights(mesh);
-    AnnotFactory.currSelection.clear();
 };
 
 // Visualization
@@ -369,81 +274,88 @@ Highlight selected faces directly on the object by modifying vertex colors
 */
 
 AnnotFactory.changeSUISphere = (bBrush=true, bEraser=false)=>{
-    let brushSize=AnnotFactory.brushRadius
+    // First time initialization (cause it works)
+    // if (AnnotFactory.STD_SEL_RAD === undefined) {
+    //     AnnotFactory.STD_SEL_RAD = ATON.SUI.getSelectorRadius();
+    //     AnnotFactory.brushRadius = AnnotFactory.STD_SEL_RAD;
+    // }
+    let brushSize = AnnotFactory.brushRadius;
+
     if (bBrush || bEraser) { 
-        ATON.SUI._mSelectorSphere.scale.setScalar(brushSize);
+        ATON.SUI.setSelectorRadius(brushSize);
         ATON.SUI._mSelectorSphere.material.dispose();
         if (bBrush) {
-            ATON.SUI._mSelectorSphere.material = new THREE.MeshStandardMaterial({
-                color: 0x00ffff, 
-                roughness: 0.75,
-                metalness: 0,
-                transparent: true,
-                opacity: 0.5,
-                premultipliedAlpha: true,
-                emissive: 0xEC407A,
-                emissiveIntensity: 0.5,
-                wireframe: false
-            });
+            ATON.SUI.setSelectorColor(ATON.MatHub.colors.green);
+            // ATON.SUI._mSelectorSphere.material = new THREE.MeshStandardMaterial({
+            //     color: 0x00ffff, 
+            //     roughness: 0.75,
+            //     metalness: 0,
+            //     transparent: true,
+            //     opacity: 0.5,
+            //     premultipliedAlpha: true,
+            //     emissive: 0xEC407A,
+            //     emissiveIntensity: 0.5,
+            //     wireframe: false
+            // });
         }
         else {
-            ATON.SUI._mSelectorSphere.material = new THREE.MeshStandardMaterial({
-                color: 0x000000, 
-                roughness: 0.75,
-                metalness: 0,
-                transparent: true,
-                opacity: 0.5,
-                premultipliedAlpha: true,
-                emissive: 0xEC407A,
-                emissiveIntensity: 0.5,
-                wireframe: false
-            });
+            ATON.SUI.setSelectorColor(ATON.MatHub.colors.orange);
+            // ATON.SUI._mSelectorSphere.material = new THREE.MeshStandardMaterial({
+            //     color: 0x000000, 
+            //     roughness: 0.75,
+            //     metalness: 0,
+            //     transparent: true,
+            //     opacity: 0.5,
+            //     premultipliedAlpha: true,
+            //     emissive: 0xEC407A,
+            //     emissiveIntensity: 0.5,
+            //     wireframe: false
+            // });
         }
-        
-        // change to mathub material
     }
     else {
-        ATON.SUI._mSelectorSphere.scale.setScalar(1);
-        ATON.SUI._mSelectorSphere.material.dispose();
-        ATON.SUI._mSelectorSphere.material = ATON.MatHub.getMaterial("selector")
+        ATON.SUI.setSelectorRadius(AnnotFactory.STD_SEL_RAD);
+        ATON.SUI.setSelectorColor(ATON.MatHub.colors.white);
     }
 }
 
-AnnotFactory.highlightFacesOnObject = (mesh, selectedFaces, color = new THREE.Color().setHex(0x00ffff)) => {
-    if (!mesh || !selectedFaces || selectedFaces.length === 0) return false;
+AnnotFactory.highlightFacesOnObject = (selectedFaces, mesh, color) => {
+    if (!selectedFaces || selectedFaces.length === 0) return false;
+    if (!color) color = AnnotFactory.highlightColor;
+    if (!mesh) mesh = AnnotFactory.mainMesh;
+    
+    const geometry = mesh.geometry;
+    // if (!geometry.attributes.color) {
+    //     console.log("No Color");
+    //     // Initialize vertex colors if they don't exist
+    //     const colorArray = new Float32Array(geometry.attributes.position.count * 3);
+    //     colorArray.fill(1); // Default white color
+    //     const colorAttr = new THREE.BufferAttribute(colorArray, 3);
+    //     geometry.setAttribute('color', colorAttr);
+    // }
 
-    let geometry = mesh.geometry;
-    if (!geometry.attributes.color) {
-        console.log("No Color");
-        // Initialize vertex colors if they don't exist
-        const colorArray = new Float32Array(geometry.attributes.position.count * 3);
-        colorArray.fill(1); // Default white color
-        const colorAttr = new THREE.BufferAttribute(colorArray, 3);
-        geometry.setAttribute('color', colorAttr);
-    }
-
-    let colorAttr = geometry.attributes.color;
-    let indexAttr = geometry.index;
+    const colorAttr = geometry.attributes.color;
+    const indexAttr = geometry.index;
 
     // For each selected face, color its vertices
     selectedFaces.forEach(face => {
         if (indexAttr) {
             // Indexed geometry
-            const indices = indexAttr.array;
-            const faceIndex = face.index;
+            let indices = indexAttr.array;
+            let faceIndex = face.index;
             
-            const a = indices[faceIndex * 3];
-            const b = indices[faceIndex * 3 + 1];
-            const c = indices[faceIndex * 3 + 2];
+            let a = indices[faceIndex * 3];
+            let b = indices[faceIndex * 3 + 1];
+            let c = indices[faceIndex * 3 + 2];
 
             colorAttr.setXYZ(a, color.r, color.g, color.b);
             colorAttr.setXYZ(b, color.r, color.g, color.b);
             colorAttr.setXYZ(c, color.r, color.g, color.b);
         } else {
             // Non-indexed geometry
-            const faceStart = face.index * 9;
+            let faceStart = face.index * 9;
             for (let i = 0; i < 3; i++) {
-                const vertexIndex = faceStart + (i * 3);
+                let vertexIndex = faceStart + (i * 3);
                 colorAttr.setXYZ(vertexIndex, color.r, color.g, color.b);
             }
         }
@@ -453,13 +365,12 @@ AnnotFactory.highlightFacesOnObject = (mesh, selectedFaces, color = new THREE.Co
     return true;
 };
 
-
 /**
  * Clear highlights on specific faces (reset them to white)
  * @param {Object} mesh - The target mesh
  * @param {Array} faces - Array of face data to clear
  */
-AnnotFactory.clearFaceHighlightsOnFaces = (mesh, faces) => {
+AnnotFactory.clearFaceHighlightsOnFaces = (faces, mesh) => {
     if (!mesh || !mesh.geometry.attributes.color || !faces.length) return false;
 
     let colorAttr = mesh.geometry.attributes.color;
@@ -497,7 +408,8 @@ AnnotFactory.clearFaceHighlightsOnFaces = (mesh, faces) => {
  * @param {Object} mesh - The target mesh to clear highlights from
  */
 AnnotFactory.clearFaceHighlights = (mesh) => {
-    if (!mesh || !mesh.geometry.attributes.color) return false;
+    if (!mesh) mesh = AnnotFactory.mainMesh;
+    if (!mesh.geometry.attributes.color) return false;
 
     const colorAttr = mesh.geometry.attributes.color;
     const colorArray = colorAttr.array;
@@ -512,25 +424,25 @@ AnnotFactory.clearFaceHighlights = (mesh) => {
 };
 // Brush tool
 // =======================================================
-
+// TEST if you can only select faces visible to the pov for selection
 /**
  * Select and highlight multiple faces on the object
  * @param {number} brushSize - Size of the selection brush
  * @param {THREE.Color} color - Color to apply to selected faces
  */
-AnnotFactory.brushTool = (brushSize = AnnotFactory.brushRadius, color = new THREE.Color().setHex(0x00ffff)) => {
-    if (!ATON._queryDataScene?.o) return false;
-    let mesh = ATON._queryDataScene.o;
+AnnotFactory.brushTool = (brushSize = AnnotFactory.brushRadius) => {
+    if (!ATON._queryDataScene?.o) return false; // Only work when over mesh
+    const mesh = ATON._queryDataScene.o;
 
-    mesh.material.vertexColors = true;
-    mesh.material.needsUpdate = true;
+    // mesh.material.vertexColors = true;
+    // mesh.material.needsUpdate = true;
 
     // Get newly selected faces
-    let newFaces = AnnotFactory.selectMultipleFaces(brushSize);
+    const newFaces = AnnotFactory.selectMultipleFaces(brushSize, mesh);
     if (!newFaces.length) return false;
 
     // Skip already selected faces
-    let newUniqueFaces = newFaces.filter(face => 
+    const newUniqueFaces = newFaces.filter(face => 
         !AnnotFactory.currSelection.has(face.index)
     );
     if (!newUniqueFaces.length) return false;
@@ -542,23 +454,23 @@ AnnotFactory.brushTool = (brushSize = AnnotFactory.brushRadius, color = new THRE
 
     // Highlight ALL selected faces (not just new ones)
     const allFaces = Array.from(AnnotFactory.currSelection).map(index => 
-        AnnotFactory.extractFaceData(mesh.geometry, index)
+        AnnotFactory.extractFaceData(index, mesh.geometry)
     );
-    AnnotFactory.highlightFacesOnObject(mesh, allFaces, color);
+    AnnotFactory.highlightFacesOnObject(allFaces, mesh);
 
     return true;
 };
 
 // Eraser tool
 AnnotFactory.eraserTool = (brushSize = AnnotFactory.brushRadius) => {
-    if (!ATON._queryDataScene?.o) return false;
-    let mesh = ATON._queryDataScene.o;
+    if (!ATON._queryDataScene?.o) return false; // Only work when over mesh
+    const mesh = ATON._queryDataScene.o;
 
-    mesh.material.vertexColors = true;
-    mesh.material.needsUpdate = true;
+    // mesh.material.vertexColors = true;
+    // mesh.material.needsUpdate = true;
 
     // Get newly selected faces
-    let newFaces = AnnotFactory.selectMultipleFaces(brushSize);
+    let newFaces = AnnotFactory.selectMultipleFaces(brushSize, mesh);
     if (!newFaces.length) return false;
 
     // Skip already selected faces
@@ -568,7 +480,7 @@ AnnotFactory.eraserTool = (brushSize = AnnotFactory.brushRadius) => {
     if (!newUniqueFaces.length) return false;
 
     // Reset the erased faces to white (or their original color if available)
-    AnnotFactory.clearFaceHighlightsOnFaces(mesh, newUniqueFaces);
+    AnnotFactory.clearFaceHighlightsOnFaces(newUniqueFaces, mesh);
 
     // Remove from current selection
     newUniqueFaces.forEach(face => {
@@ -581,13 +493,7 @@ AnnotFactory.eraserTool = (brushSize = AnnotFactory.brushRadius) => {
 // Lasso tool           
 // =======================================================
 
-AnnotFactory.lassoTool = () => {
-    if (!ATON._queryDataScene?.o) return false;
-
-    let mesh     = ATON._queryDataScene.o;
-    let hitPoint = ATON._queryDataScene.p;
-
-    if (!mesh || !hitPoint) return false;
+AnnotFactory.lassoTool = (lassoPoints) => {
 };
 
 // History management
@@ -618,7 +524,6 @@ AnnotFactory.recordState = () =>{
     if (lastSelection === undefined) lastSelection = []; 
 
     if (AnnotFactory.setsAreEqual(lastSelection, AnnotFactory.currSelection)) {
-        console.log("Same selection")
         return;
     }
 
