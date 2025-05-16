@@ -1,5 +1,3 @@
-import { THREE } from "../../../artemis-web-main/lib/libs";
-
 /*
     ATON Annotation Factory
 
@@ -21,9 +19,11 @@ AnnotFactory.init = async () => {
     // Brush tool state
     AnnotFactory.currSelection = new Set();    // Track selected face IDs to avoid duplicates
 
+    // Inits
     await AnnotFactory.initQuerying();
-
     AnnotFactory.initHistory();
+    AnnotFactory.initLasso();
+    AnnotFactory.initLassoEventHandlers();
     
     AnnotFactory.completedAnnotations = [];
     
@@ -61,6 +61,47 @@ AnnotFactory.initQuerying = async () => {
         AnnotFactory.mainGeometry.setAttribute('color', colorAttr);
     }
 
+};
+
+AnnotFactory.initLassoCanvas = () => {
+    const canvas = document.createElement('canvas');
+    canvas.id = 'lassoCanvas';
+    document.body.appendChild(canvas);
+
+    Object.assign(canvas.style, {
+        position: 'absolute',
+        top: '0',
+        left: '0',
+        width: '100%',
+        height: '100%',
+        pointerEvents: 'none',
+        zIndex: '10'
+    });
+
+    canvas.width  = ATON._renderer.domElement.width;
+    canvas.height = ATON._renderer.domElement.height;
+
+    AnnotFactory.lassoCtx = canvas.getContext('2d');
+
+    AnnotFactory.lassoCtx.strokeStyle = 'rgba(0, 255, 0, 0.7)';
+    AnnotFactory.lassoCtx.lineWidth   = 1;
+    AnnotFactory.lassoCtx.fillStyle   = 'rgba(0, 255, 0, 0.2)';
+};
+
+AnnotFactory.initLasso = () => {
+    AnnotFactory.initLassoCanvas();
+    
+    AnnotFactory.lassoState = {
+        isActive: false,
+        points: [],
+        lastPosition: null, // {x, y}
+        lastProcessedPosition: null // for dupe check
+    };
+
+    AnnotFactory.currentMousePosition = {x: 0, y: 0};
+    // AnnotFactory.currentMousePosition = getMousePosition()
+
+    AnnotFactory.isLassoEnabled = false;
 };
 
 // Utils
@@ -169,6 +210,65 @@ AnnotFactory.applySelectionToMesh = (mesh) =>{
     
     AnnotFactory.highlightFacesOnObject(faces, mesh);
     return;
+};
+
+AnnotFactory._getCurrentPixelRatio = () => {
+    if (!AnnotFactory.lassoCtx) return;
+
+    const canvas = AnnotFactory.lassoCtx.canvas;
+    const pixelRatio = ATON._renderer.getPixelRatio();
+
+    // const displayWidth = ATON._renderer.domElement.clientWidth;
+    // const displayHeight = ATON._renderer.domElement.clientHeight;
+
+    // canvas.width = Math.floor(displayWidth * pixelRatio);
+    // canvas.height = Math.floor(displayHeight * pixelRatio);
+    
+    // AnnotFactory.lassoCtx.setTransform(1, 0, 0, 1, 0, 0);
+    // AnnotFactory.lassoCtx.scale(pixelRatio, pixelRatio);
+
+    return 1; 
+}
+
+AnnotFactory.getMousePosition = (event) => {
+    if (!AnnotFactory.lassoCtx) return { x: 0, y: 0 };
+
+    const scale = AnnotFactory._getCurrentPixelRatio();
+    const rect = ATON._renderer.domElement.getBoundingClientRect();
+
+    return {
+        x: (event.clientX - rect.left) * scale,
+        y: (event.clientY - rect.top) * scale
+    };
+};
+
+AnnotFactory.updateMousePosition = (event) => {
+    if (!AnnotFactory.lassoCtx) return;
+
+    const scale = AnnotFactory._getCurrentPixelRatio();
+    const rect = AnnotFactory.lassoCtx.canvas.getBoundingClientRect();
+
+    AnnotFactory.currentMousePosition = {
+        x: (event.clientX - rect.left) * scale,
+        y: (event.clientY - rect.top) * scale
+    };
+};
+
+AnnotFactory.clearSelection = () => {
+    AnnotFactory.cleanupLasso();
+};
+
+AnnotFactory.isPointInPolygon = (point, polygon) => {
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const xi = polygon[i].x, yi = polygon[i].y;
+        const xj = polygon[j].x, yj = polygon[j].y;
+        
+        const intersect = ((yi > point.y) !== (yj > point.y))
+            && (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
 };
 
 // Face Selection
@@ -452,11 +552,8 @@ AnnotFactory.brushTool = (brushSize = AnnotFactory.brushRadius) => {
         AnnotFactory.currSelection.add(face.index);
     });
 
-    // Highlight ALL selected faces (not just new ones)
-    const allFaces = Array.from(AnnotFactory.currSelection).map(index => 
-        AnnotFactory.extractFaceData(index, mesh.geometry)
-    );
-    AnnotFactory.highlightFacesOnObject(allFaces, mesh);
+    // Highlight ALL selected faces
+    AnnotFactory.applySelectionToMesh();
 
     return true;
 };
@@ -481,25 +578,219 @@ AnnotFactory.eraserTool = (brushSize = AnnotFactory.brushRadius) => {
 
     // Reset the erased faces to white (or their original color if available)
     AnnotFactory.clearFaceHighlightsOnFaces(newUniqueFaces, mesh);
-
+    
     // Remove from current selection
     newUniqueFaces.forEach(face => {
         AnnotFactory.currSelection.delete(face.index);
     });
 
+    AnnotFactory.applySelectionToMesh();
+    
     return true;
 };
 
-// Lasso tool           
+// Lasso tool          
 // =======================================================
 
-AnnotFactory.lassoTool = (lassoPoints) => {
+// Create a 2D canvas for lass tool 
+
+AnnotFactory.startLasso = (event) => {
+    // if (!ATON._queryDataScene?.o) return;
+
+    // Clear previous selection (unnecessary once logic is complete)
+    if (AnnotFactory.lassoState.isActive) {
+        AnnotFactory.cleanupLasso();
+    }
+    AnnotFactory.currentMousePosition = {x: 0, y: 0};
+
+    AnnotFactory.lassoState.isActive = true;
+    AnnotFactory.lassoState.points = [AnnotFactory.getMousePosition(event)];
+
+    // Init canvas 
+    if (!AnnotFactory.lassoCtx) AnnotFactory.initLassoCanvas();
+
+    // Visual setup
+    AnnotFactory.lassoCtx.clearRect(0, 0,
+        AnnotFactory.lassoCtx.canvas.width,
+        AnnotFactory.lassoCtx.canvas.height
+    );
+    // AnnotFactory.lassoCtx.strokeStyle = 'rgba(0, 255, 0, 0.7)';
+    // AnnotFactory.lassoCtx.lineWidth = 2;
+    AnnotFactory.lassoCtx.beginPath();
+    AnnotFactory.lassoCtx.moveTo(
+        AnnotFactory.lassoState.points[0].x,
+        AnnotFactory.lassoState.points[0].y
+    );
+};
+
+AnnotFactory.updateLasso = (event) => {
+    if(!AnnotFactory.lassoState.isActive) return;
+
+    const currentPos  = AnnotFactory.getMousePosition(event);
+    const previousPos = AnnotFactory.lassoState.points[AnnotFactory.lassoState.points.length - 1];
+    const dist = AnnotFactory.pointDistance(currentPos, previousPos);
+
+    // Reduce oversampling
+    if (dist < 5) return;
+
+    AnnotFactory.lassoState.points.push(currentPos);
+
+    // AnnotFactory.lassoState.lastPosition = currentPos;
+
+    // Draw the line
+    AnnotFactory.lassoCtx.lineTo(currentPos.x, currentPos.y);
+    AnnotFactory.lassoCtx.stroke();
+};
+
+AnnotFactory.endLasso = () => {
+    if (!AnnotFactory.lassoState.isActive) return;
+
+    AnnotFactory.lassoCtx.closePath();
+    AnnotFactory.lassoCtx.fillStyle = 'rgba(0, 255, 0, 0.2)';
+    AnnotFactory.lassoCtx.fill();
+
+    AnnotFactory.processLassoSelection();
+    AnnotFactory.lassoState.isActive = false;
+    AnnotFactory.cleanupLasso();
+};
+
+AnnotFactory.cleanupLasso = () => {
+    if (!AnnotFactory.lassoCtx) return;
+    
+    AnnotFactory.lassoState.isActive = false;
+
+    AnnotFactory.lassoCtx.clearRect(0, 0, 
+        AnnotFactory.lassoCtx.canvas.width,
+        AnnotFactory.lassoCtx.canvas.height
+        );
+    AnnotFactory.lassoState.points = [];
+};
+
+AnnotFactory.processLassoSelection = () => {
+    if (!AnnotFactory.lassoState.points || AnnotFactory.lassoState.points.length < 3) return;
+    if (!AnnotFactory.mainMesh) return;
+
+    console.time('Lasso Selection');
+    
+    const drawArray = AnnotFactory.getLassoPixels();
+    if (drawArray.length === 0 ) return;
+    
+    const mesh = AnnotFactory.mainMesh;
+    const geometry = mesh.geometry;
+    const camera = ATON.Nav._camera;
+    const canvas = AnnotFactory.lassoCtx.canvas;
+    const width = canvas.width;
+    const height = canvas.height;
+    
+    // Optimization
+    const bounds = AnnotFactory.getLassoScreenBounds();
+    const sampleStep = Math.max(1, Math.floor(Math.sqrt(bounds.width * bounds.height) / 20));
+    
+    const selectedFaces = [];
+
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    // Smaple points from the drawn area (TODO, send this elsewhere)
+    for (let i = 0; i < drawArray.length; i += 4) {
+        const point = drawArray[i];
+
+        // Normalize coords
+        mouse.x = (point.x / width) * 2 - 1;
+        mouse.y = (point.y / height) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObject(mesh);
+
+        if(intersects.length > 0) {
+            const faceIndex = intersects[0].faceIndex;
+            if ( faceIndex !== undefined) {
+                selectedFaces.push(faceIndex);
+            }
+        }
+    }
+    // check if face centroids are inside the lasso polygon 
+    const faceCount = geometry.index ? geometry.index.count / 3 : geometry.attributes.position.count / 9;
+    for (let i = 0; i < faceCount; i++) {
+        const face = AnnotFactory.extractFaceData(i, geometry);
+        const centroid = new THREE.Vector3();
+        centroid.add(face.vertices[0]).add(face.vertices[1]).add(face.vertices[2]).divideScalar(3);
+        
+        // Project centroid to screen space
+        const centroidScreen = centroid.clone().project(camera);
+        const screenX = (centroidScreen.x * 0.5 + 0.5) * width;
+        const screenY = (centroidScreen.y * -0.5 + 0.5) * height;
+
+        if (AnnotFactory.isPointInPolygon({x: screenX, y: screenY}, AnnotFactory.lassoState.points)) {
+            selectedFaces.push(i);
+        }
+    }
+
+    // Skip already selected faces
+    const newUniqueFaces = selectedFaces.filter(face => 
+        !AnnotFactory.currSelection.has(face.index)
+    );
+
+    // Add to current selection
+    newUniqueFaces.forEach(face => {
+        AnnotFactory.currSelection.add(face);
+    });
+
+    // AnnotFactory.currSelection.add(selectedFaces);
+    AnnotFactory.applySelectionToMesh();
+};
+
+AnnotFactory.getLassoPixels = () => {
+    const canvas = AnnotFactory.lassoCtx.canvas;
+    const imgData = AnnotFactory.lassoCtx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imgData.data;
+    const drawArray = [];
+    
+    for (let i = 0; i < data.length; i += 4) {
+        const alpha = data[i + 3];
+        if (alpha > 0) {
+            const x = (i / 4) % canvas.width;
+            const y = Math.floor((i / 4) / canvas.width);
+            drawArray.push({x, y});
+        }
+    }
+    return drawArray;
+};
+
+AnnotFactory.lassoTool = (event) => {
+    if (!event) return;
+
+    // AnnotFactory.updateMousePosition(event);
+    AnnotFactory.updateMousePosition(event);
+
+    // Skip if position hasn't changed
+    if (AnnotFactory.lassoState.lastProcessedPosition &&
+        AnnotFactory.lassoState.lastProcessedPosition.x === AnnotFactory.currentMousePosition.x
+        &&
+        AnnotFactory.lassoState.lastProcessedPosition.y === AnnotFactory.currentMousePosition.y
+    ) {
+        return;
+    }
+
+    if (!AnnotFactory.lassoState.isActive) {
+        AnnotFactory.cleanupLasso();
+        AnnotFactory.startLasso(event);      
+    }
+    else {
+        AnnotFactory.updateLasso(event);
+    }
+    AnnotFactory.lassoState.lastProcessedPosition = {...AnnotFactory.currentMousePosition};
+};
+
+// EventListeners
+AnnotFactory.initLassoEventHandlers = () => {
+    AnnotFactory._lastMouseEvent = null;
 };
 
 // History management
 // =======================================================
 
-AnnotFactory.initHistory = ()=>{
+AnnotFactory.initHistory = () => {
     AnnotFactory.undoStack = [];
     AnnotFactory.redoStack = [];
 
@@ -508,11 +799,11 @@ AnnotFactory.initHistory = ()=>{
 };
 
 // Helper function - return clone of current selection
-AnnotFactory._saveSelectionState = () =>{
+AnnotFactory._saveSelectionState = () => {
     return new Set(AnnotFactory.currSelection); // Clone current selection
 };
 
-AnnotFactory.recordState = () =>{
+AnnotFactory.recordState = () => {
     // If last selection is the same return
 
     // TODO:
@@ -531,7 +822,7 @@ AnnotFactory.recordState = () =>{
     AnnotFactory.redoStack = [];
 };
 
-AnnotFactory.undo = ()=>{
+AnnotFactory.undo = () => {
     if (AnnotFactory.undoStack.length === 0) {
         return;
     }
@@ -552,6 +843,54 @@ AnnotFactory.redo = () => {
     // Restore next state
     AnnotFactory.currSelection = AnnotFactory.redoStack.pop();
     AnnotFactory.applySelectionToMesh();
+};
+
+// Optimization
+// =======================================================
+
+AnnotFactory.prepareMeshforSelection = (mesh) => {
+    if (!mesh) mesh = AnnotFactory.mainMesh;
+
+    const geometry = mesh.geometry;
+    const faceCount = geometry.index ? geometry.index.count / 3 : geometry.atributes.position.count / 9;
+    AnnotFactory.faceCentroids = new Array(faceCount);   
+    // Pre-compute centroids and other data
+    for (let i = 0; i < faceCount; i++) {
+        const face = AnnotFactory.extractFaceData(i, geometry);
+        const centroid = new THREE.Vector3();
+        centroid.add(face.vertices[0]).add(face.vertices[1]).add(face.vertices[2]).divideScalar(3);
+        AnnotFactory.faceCentroids[i] = centroid;
+    }
+};
+
+AnnotFactory.pointDistance = (pos1, pos2) => {
+    const dist = Math.sqrt(
+        Math.pow(pos1.x - pos2.x, 2) + 
+        Math.pow(pos1.y - pos2.y)
+    );
+    return dist;
+};
+
+AnnotFactory.getLassoScreenBounds = () => {
+    const points = AnnotFactory.lassoState.points;
+    let minX = Infinity, minY = Infinity;
+    let maxX = -Infinity, maxY = -Infinity;
+    
+    for (const point of points) {
+        minX = Math.min(minX, point.x);
+        minY = Math.min(minY, point.y);
+        maxX = Math.max(maxX, point.x);
+        maxY = Math.max(maxY, point.y);
+    }
+    
+    return {
+        minX: Math.floor(minX),
+        minY: Math.floor(minY),
+        maxX: Math.ceil(maxX),
+        maxY: Math.ceil(maxY),
+        width: Math.ceil(maxX - minX),
+        height: Math.ceil(maxY - minY)
+    };
 };
 
 export default AnnotFactory;

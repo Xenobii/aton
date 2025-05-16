@@ -23,6 +23,7 @@ HATHOR.SELACTION_ADDCONVEXPOINT = 2;
 HATHOR.SELACTION_MEASURE        = 3;
 HATHOR.SELACTION_BRUSH          = 4;
 HATHOR.SELACTION_ERASER         = 5;
+HATHOR.SELACTION_LASSO          = 6;
 
 
 // Set SceneID to load
@@ -144,16 +145,21 @@ HATHOR.update = ()=>{
     }
 */
     if (!ATON.FE._bPopup){
-        if (HATHOR._actState === HATHOR.SELACTION_BRUSH && ATON._bLeftMouseDown) {
-            if (!HATHOR._pauseAnnot) ATON.AnnotFactory.brushTool();
-        }
-    }
-    if (!ATON.FE._bPopup){
-        if (HATHOR._actState === HATHOR.SELACTION_ERASER && ATON._bLeftMouseDown) {
-            if (!HATHOR._pauseAnnot) ATON.AnnotFactory.eraserTool();
+        if (ATON._bLeftMouseDown){
+            if (HATHOR._actState === HATHOR.SELACTION_BRUSH) {
+                if (!HATHOR._pauseAnnot) ATON.AnnotFactory.brushTool();
+            }
+            // if (HATHOR._actState === HATHOR.SELACTION_LASSO) {
+            //     if (!HATHOR._pauseAnnot) ATON.AnnotFactory.lassoTool();
+            // }
+            if (HATHOR._actState === HATHOR.SELACTION_ERASER) {
+                if (!HATHOR._pauseAnnot) ATON.AnnotFactory.eraserTool();
+            }
         }
     }
 };
+
+// Temp stuff for lasso
 
 
 // Front-end UI
@@ -1066,6 +1072,16 @@ HATHOR.setupEventHandlers = ()=>{
                 HATHOR.resetSelectionMode();
             }
         }
+        // Lasso
+        if (k==='l') {
+            if (HATHOR._actState !== HATHOR.SELACTION_LASSO) {
+                HATHOR.setSelectionMode(HATHOR.SELACTION_LASSO);
+                ATON.Nav.setUserControl(false);
+            }
+            else {
+                HATHOR.resetSelectionMode();
+            }
+        }
 
         // Undo
         if (k==='z') {
@@ -1101,9 +1117,9 @@ HATHOR.setupEventHandlers = ()=>{
             ATON.SceneHub.patch( E, ATON.SceneHub.MODE_ADD);
             ATON.Photon.fire("AFE_AddSceneEdit", E);
         }
-        if (k==='l'){
-            ATON.FE.controlLight(true);
-        }
+        // if (k==='l'){
+        //     ATON.FE.controlLight(true);
+        // }
 
         if (k==='p'){
             HATHOR.addLightProbe();
@@ -1176,10 +1192,36 @@ HATHOR.setupEventHandlers = ()=>{
 
     // Annotation history utils - save previous state when performing an action
     ATON.on("MouseLeftButtonDown", ()=>{
-        if (HATHOR._actState === HATHOR.SELACTION_BRUSH || HATHOR._actState === HATHOR.SELACTION_ERASER) {
+        if (HATHOR._actState === HATHOR.SELACTION_BRUSH || HATHOR._actState === HATHOR.SELACTION_ERASER || HATHOR._actState === HATHOR.SELACTION_LASSO) {
             ATON.AnnotFactory.recordState();
         }
-    })
+    });
+
+    ATON.on("MouseLeftButtonUp", ()=>{
+        if (HATHOR._actState === HATHOR.SELACTION_LASSO) {
+            ATON.AnnotFactory.endLasso();
+        }
+    });
+
+    const canvas = ATON._renderer.domElement;
+    
+    canvas.addEventListener('mousedown', (e) => {
+        if (HATHOR._actState === HATHOR.SELACTION_LASSO) {
+            ATON.AnnotFactory.lassoTool(e);
+        }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+        if (ATON._bLeftMouseDown && HATHOR._actState === HATHOR.SELACTION_LASSO) {
+            ATON.AnnotFactory.lassoTool(e);
+        }
+    });
+    
+    canvas.addEventListener('mouseup', (e) => {
+        if (HATHOR._actState === HATHOR.SELACTION_LASSO) {
+            ATON.AnnotFactory.endLasso();
+        }
+    });
 
     ATON.on("KeyUp",(k)=>{
         if (k==='w'){
@@ -1205,20 +1247,20 @@ HATHOR.setupEventHandlers = ()=>{
             }
         }
 
-        if (k==='l'){
-            ATON.FE.controlLight(false);
+        // if (k==='l'){
+        //     ATON.FE.controlLight(false);
 
-            let D = ATON.getMainLightDirection();
+        //     let D = ATON.getMainLightDirection();
 
-            let E = {};
-            E.environment = {};
-            E.environment.mainlight = {};
-            E.environment.mainlight.direction = [D.x,D.y,D.z];
-            E.environment.mainlight.shadows = ATON._renderer.shadowMap.enabled;
+        //     let E = {};
+        //     E.environment = {};
+        //     E.environment.mainlight = {};
+        //     E.environment.mainlight.direction = [D.x,D.y,D.z];
+        //     E.environment.mainlight.shadows = ATON._renderer.shadowMap.enabled;
 
-            ATON.SceneHub.patch( E, ATON.SceneHub.MODE_ADD);
-            ATON.Photon.fire("AFE_AddSceneEdit", E);
-        }
+        //     ATON.SceneHub.patch( E, ATON.SceneHub.MODE_ADD);
+        //     ATON.Photon.fire("AFE_AddSceneEdit", E);
+        // }
 
         if (k==='.') ATON.FE.controlSelectorScale(false);
 
