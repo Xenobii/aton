@@ -826,9 +826,6 @@ ATON.realize = ( bNoRender )=>{
     // Semantic Factory
     ATON.SemFactory.init();
 
-    // Annot Factroy
-    ATON.AnnotFactory.init();
-
     // App
     //ATON.App.init();
 
@@ -920,6 +917,9 @@ ATON.realize = ( bNoRender )=>{
     ATON.focusOn3DView();
 
     ATON._bInitialized = true;
+
+    // Annot Factroy
+    ATON.AnnotFactory.init();
 };
 
 // TODO
