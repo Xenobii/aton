@@ -1006,6 +1006,8 @@ HATHOR.setupEventHandlers = ()=>{
 
         if (k==='u') ATON.FE.popupUser();
 
+        if (k==='f') ATON.AnnotFactory.faceSelectionTest();
+
         if (k === '('){
             ATON._envMapInt -= 0.5;
             if (ATON._envMapInt < 0.5) ATON._envMapInt = 0.5;
@@ -1175,13 +1177,13 @@ HATHOR.setupEventHandlers = ()=>{
         //if (k==='.') ATON.MediaFlow.startMediaStreaming();
         //if (k==='r') ATON.MediaFlow.startRecording();
 
-        if (k==='f'){
-            ATON.Photon.setFocusStreaming(true);
+        // if (k==='f'){
+        //     ATON.Photon.setFocusStreaming(true);
 
-            if (ATON._queryDataScene){
-                ATON.FX.setDOFfocus( ATON._queryDataScene.d );
-            }
-        }
+        //     if (ATON._queryDataScene){
+        //         ATON.FX.setDOFfocus( ATON._queryDataScene.d );
+        //     }
+        // }
 
         if (k ==='5'){
             // TODO: switch perspective/ortho cam
@@ -1231,21 +1233,21 @@ HATHOR.setupEventHandlers = ()=>{
         //if (k==='.') ATON.MediaFlow.stopMediaStreaming();
         //if (k==='r') ATON.MediaFlow.stopRecording();
 
-        if (k==='f'){
-            ATON.Photon.setFocusStreaming(false);
+        // if (k==='f'){
+        //     ATON.Photon.setFocusStreaming(false);
 
-            if (ATON.FX.isPassEnabled(ATON.FX.PASS_DOF)){
-                let k = ATON.FX.getDOFfocus().toPrecision(ATON.SceneHub.FLOAT_PREC);
+        //     if (ATON.FX.isPassEnabled(ATON.FX.PASS_DOF)){
+        //         let k = ATON.FX.getDOFfocus().toPrecision(ATON.SceneHub.FLOAT_PREC);
 
-                ATON.SceneHub.patch({
-                    fx:{ 
-                        dof:{
-                            f: k
-                        }
-                    }
-                }, ATON.SceneHub.MODE_ADD);
-            }
-        }
+        //         ATON.SceneHub.patch({
+        //             fx:{ 
+        //                 dof:{
+        //                     f: k
+        //                 }
+        //             }
+        //         }, ATON.SceneHub.MODE_ADD);
+        //     }
+        // }
 
         // if (k==='l'){
         //     ATON.FE.controlLight(false);

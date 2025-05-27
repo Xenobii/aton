@@ -530,7 +530,8 @@ AnnotFactory.processLassoSelection = () => {
     );
     if (!newUniqueFaces.length) return false;
 
-    newUniqueFaces.forEach(face => {
+    const newUniqueFacesFiltered = GeometryHelpers.visibleFaceFiltering(newUniqueFaces, mesh);
+    newUniqueFacesFiltered.forEach(face => {
         AnnotFactory.currSelection.add(face.index);
     });
 
@@ -627,6 +628,31 @@ AnnotFactory.redo = () => {
     // Restore next state
     AnnotFactory.currSelection = AnnotFactory.redoStack.pop();
     AnnotFactory.applySelectionToMesh();
+};
+
+// Lasso optimization
+
+// Camera frustum culling
+// ADD another function to check if the whole mesh (bbox) is visible for optimization 
+// ADD another function to first get all mesh faces if necessary 
+
+AnnotFactory.faceSelectionTest = () => {
+    console.time('1')
+    const faces1 = AnnotFactory.frustumCullingBVH();
+    console.timeEnd('1')
+    console.time('2')
+    const faces2 = AnnotFactory.getFacesFacingCamera(faces1);
+    console.timeEnd('2')
+    console.time('3')
+    const faces3 = AnnotFactory.depthMappingBVH(faces2)
+    console.timeEnd('3')
+    console.time('4')
+    const faces4 = AnnotFactory.depthMappingBVH2(faces2)
+    console.timeEnd('4')
+    AnnotFactory.currSelection = faces3;
+    console.log(faces3)
+    console.log(faces4)
+    AnnotFactory.applySelectionToMesh()
 };
 
 export default AnnotFactory;
