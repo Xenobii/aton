@@ -47,7 +47,10 @@ XR.init = ()=>{
     XR._fromPos = new THREE.Vector3();
     XR._reqPos  = new THREE.Vector3();
 
-    XR.gControllers = undefined;
+    //XR.gControllers = undefined;
+    XR.gControllers = ATON.createUINode();
+    XR.gControllers.disablePicking();
+    XR.rig.add( XR.gControllers );
 
     XR.controller0 = undefined;
     XR.controller1 = undefined;
@@ -288,7 +291,7 @@ XR.resetSceneOffsets = ()=>{
 
 // On XR session started
 XR.onSessionStarted = ( session )=>{
-    if (XR.currSession) return; // Already running
+    if (XR.currSession) return; // Session is already active
     XR._bReqPresenting = false;
 
 	session.addEventListener( 'end', XR.onSessionEnded );
@@ -301,23 +304,71 @@ XR.onSessionStarted = ( session )=>{
     // If any streaming is ongoing, terminate it
     ATON.MediaFlow.stopAllStreams();
 
+/*
     if (XR._sessionType === "immersive-ar"){
         ATON._renderer.xr.setReferenceSpaceType( 'local' );
     }
-
+*/
     // Promised
 	ATON._renderer.xr.setSession( session ).then(()=>{
         XR.currSession = session;
         console.log(XR.currSession);
 
+        for (let c = 0; c < 2; c++){
+            const C = ATON._renderer.xr.getController(c);
+
+            if (C !== undefined && !C.userData.bXRconfig){
+                //console.log(C);
+
+                C.visible = false;
+                C.userData.bXRconfig = true;
+
+                C.addEventListener( 'connected', (e) => {
+                    //console.log( e.data.handedness );
+                    let hand = e.data.handedness;
+                    C.gm = e.data.gamepad;
+
+                    C.visible = true;
+                    
+                    //console.log(e.data);
+                    console.log("Hand "+hand);
+                    console.log("GamePad "+C.gm);
+
+                    if (hand === "left")  XR._setupControllerL(C, true);
+                    else {
+                        if (hand === "right") XR._setupControllerR(C, true);
+                        else { // FIXME:
+
+                            //XR._setupControllerR(C, false);
+                            
+                            C.addEventListener('selectstart', ()=>{
+                                //if (XR._handleUISelection()) return;
+                                ATON.fire("XRselectStart", XR.HAND_R);
+                                
+                                console.log("Head-aligned select");
+                            });
+                            C.addEventListener('selectend', ()=>{ 
+                                ATON.fire("XRselectEnd", XR.HAND_R);
+                            });
+
+                            ATON.fire("XRcontrollerConnected", XR.HAND_R);
+                        }
+                    }
+                });
+            }
+        }
+
         // AR sessions
         if (XR._sessionType === "immersive-ar"){
+            ATON._renderer.xr.setReferenceSpaceType( 'local' );
+
             ATON._mainRoot.background = null;
             if (ATON._mMainPano) ATON._mMainPano.visible = false;
 
             //XR.setupSceneForAR();
 
             // Mobile AR
+/*
             let c0 = ATON._renderer.xr.getController(0);
             if (c0 && ATON.device.isMobile){
                 XR.controller0 = ATON._renderer.xr.getController(0);
@@ -334,6 +385,7 @@ XR.onSessionStarted = ( session )=>{
 
                 XR.gControllers.add( XR.controller0 );
             }
+*/
 
 /*
             XR._bPresenting = true;
@@ -354,6 +406,7 @@ XR.onSessionStarted = ( session )=>{
         */
 
         else {
+/*
             for (let c = 0; c < 2; c++){
                 const C = ATON._renderer.xr.getController(c);
 
@@ -395,6 +448,7 @@ XR.onSessionStarted = ( session )=>{
                     });
                 }
             }
+*/
 
             // reparent current camera to the XR rig
             XR.rig.add( ATON.Nav._camera );
@@ -534,14 +588,14 @@ XR.setupControllerUI = (h, bAddRep)=>{
     let lhand = undefined;
 
     //console.log("Setup controller "+h);
-
+/*
     if (XR.gControllers === undefined){
         XR.gControllers = ATON.createUINode();
 
         XR.gControllers.disablePicking();
         XR.rig.add(XR.gControllers);
     }
-
+*/
     // Left
     if (h === XR.HAND_L){
         XR.gControllers.add( XR.controller1 );
