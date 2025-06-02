@@ -1,0 +1,14 @@
+{
+    "name": "thoth",
+
+    "client":{
+        "files": [
+            "THOTH.helpers.js",
+            "THOTH.geometryhelpers.js",
+            "THOTH.mat.js",
+            "THOTH.toolbox.js",
+            "THOTH.fe.js",
+            "THOTH.js"
+        ]
+    }
+}

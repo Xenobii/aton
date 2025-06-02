@@ -1,0 +1,33 @@
+{
+    "name": "",
+    "data": {},
+    "services": {
+        "main": {
+            "PORT": 8080,
+            "PORT_S": 8083,
+            "pathCert": "",
+            "pathKey": ""
+        },
+        "photon": {
+            "PORT": 8890,
+            "address": "ws://localhost"
+        },
+        "webdav": {
+            "PORT": 8081
+        },
+        "maat": {
+            "PORT": 8891
+        }
+    },
+    "landing": {
+        "gallery": true,
+        "samples": true
+    },
+    "shu": {
+        "samples": true,
+        "apps": [
+            "app_template"
+        ],
+        "staffpick": {}
+    }
+}
