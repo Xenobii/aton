@@ -25,11 +25,20 @@ THOTH.setup = () => {
     THOTH.initHistory();
 
     THOTH.Mat.init();
-    THOTH.Toolbox.init();
     THOTH.FE.init();
+    THOTH.Toolbox.init();
 
-    // Temporary function for testing
-    THOTH.testFunction();
+    // List all completed annotations
+    THOTH.annotations = [];
+
+    // Selected annotation
+    THOTH.currAnnotation = {
+        name: undefined,
+        visible: true,
+        highlightColor: "#FFFFFF",
+        faceIndices: new Set(),
+        description: undefined
+    };
 };
 
 THOTH.update = () => {
@@ -117,10 +126,6 @@ THOTH.setSelectorColor = (color, opacity) => {
     if (opacity !== undefined) matSel.uniforms.opacity.value = opacity;
 };
 
-THOTH.testFunction = () => {
-    // THOTH.FE.uiAddButtonTest("idTopToolbar");
-};
-
 /* 
 History
 ===========================================================*/
@@ -131,11 +136,11 @@ THOTH.recordState = () => {
 
     if (lastSelection === undefined) lastSelection = []; 
 
-    if (THOTH.Helpers.setsAreEqual(lastSelection, THOTH.Toolbox.currSelection)) {
+    if (THOTH.Helpers.setsAreEqual(lastSelection, THOTH.currAnnotation.faceIndices)) {
         return;
     }
 
-    THOTH.undoStack.push(new Set(THOTH.Toolbox.currSelection));
+    THOTH.undoStack.push(new Set(THOTH.currAnnotation.faceIndices));
     THOTH.redoStack = [];
 };
 
@@ -143,21 +148,107 @@ THOTH.undo = () => {
     if (THOTH.undoStack.length === 0) {
         return;
     }
-    // Save current state to redo stakck first
-    THOTH.redoStack.push(new Set(THOTH.Toolbox.currSelection));
+    // Save current state to redo stack first
+    THOTH.redoStack.push(new Set(THOTH.currAnnotation.faceIndices));
 
     // Restore previous state
-    THOTH.Toolbox.currSelection = THOTH.undoStack.pop();
-    THOTH.Toolbox.applySelectionToMesh();
+    THOTH.currAnnotation.faceIndices = THOTH.undoStack.pop();
+    THOTH.Toolbox.highlightVisibleSelections();
 };
 
 THOTH.redo = () => {
     if (THOTH.redoStack.length === 0) return;
 
     // Save current state to undo stack first
-    THOTH.undoStack.push(new Set(THOTH.Toolbox.currSelection));
+    THOTH.undoStack.push(new Set(THOTH.currAnnotation.faceIndices));
 
     // Restore next state
-    THOTH.Toolbox.currSelection = THOTH.redoStack.pop();
-    THOTH.Toolbox.applySelectionToMesh();
+    THOTH.currAnnotation.faceIndices = THOTH.redoStack.pop();
+    THOTH.Toolbox.highlightVisibleSelections();
+};
+
+/* 
+Annotation Management
+===========================================================*/
+
+THOTH.createAnnotation = () => {
+    // const currAnnotation = {
+    //     name: undefined,
+    //     visible: true,
+    //     highlightColor: "#FFFFFF",
+    //     faceIndices: undefined,
+    //     description: undefined
+    // };
+
+    THOTH.annotations.push(THOTH.currAnnotation);
+    
+    THOTH.FE.createAnnotationFolder(THOTH.annotations[0]);
+};
+
+// TODO DEBUG TOMORROW
+
+THOTH.editAnnotationName = (annotation, newName) => {
+    // Edit annotation folder name ???
+    annotation.name = newName;
+};
+
+THOTH.toggleVisibility = (annotation, isVisible) => {
+    // TODO: change currselection to be annotation.faceIndices
+    annotation.visible = isVisible;
+    THOTH.Toolbox.highlightVisibleSelections(THOTH.annotations);
+}
+
+THOTH.editSelection = (annotation) => {
+    THOTH.FE._actState = THOTH.FE.SELACTION_EDIT;
+    THOTH.FE._tool = undefined
+    
+    THOTH.FE.uiSetAnnotatorMode();
+    
+    if (annotation.faceIndices !== undefined) {
+        THOTH.currAnnotation.faceIndices = annotation.faceIndices;
+    };
+};
+
+THOTH.applyAnnotation = (annotation) => {
+    if (THOTH.currAnnotation.faceIndices.length === 0) {
+        console.warn("There are no selected faces to ba applied");
+        THOTH.FE._actState = THOTH.FE.SELACTION_STD;
+        return;
+    }
+    
+    THOTH.FE._actState = THOTH.FE.SELACTION_STD;
+    
+    THOTH.FE.disableTools();
+    THOTH.FE.uiSetDefaultMode();
+    
+    ATON.Nav.setUserControl(true);
+    
+    // Push current selection to this annotation
+    console.log(annotation.faceIndices)
+
+    THOTH.currAnnotation.faceIndices.forEach(faceIndex => {
+        annotation.faceIndices.add(faceIndex)
+    });
+    
+    // Clear current selection
+    THOTH.currAnnotation.faceIndices = new Set();
+    
+    console.log("Applied selection for", annotation.name);
+    console.log(annotation.faceIndices)
+};
+
+THOTH.deleteAnnotation = (annotation) => {
+    // THOTH.FE._actState = THOTH.FE.SELACTION_STD;
+
+    // Delete folder
+    THOTH.FE.annotationFolder.removeFolder(annotation.name);
+
+    // Remove from annotation array
+    const index = THOTH.annotations.indexOf(annotation)
+    THOTH.annotations.splice(index, l);
+
+    // Update visuals
+    THOTH.Toolbox.highlightVisibleSelections();
+
+    console.log("Deleted annotation", annotation.name);
 };

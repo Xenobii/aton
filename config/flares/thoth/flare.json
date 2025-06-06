@@ -3,6 +3,7 @@
 
     "client":{
         "files": [
+            "dat.gui.min.js",
             "THOTH.helpers.js",
             "THOTH.geometryhelpers.js",
             "THOTH.mat.js",

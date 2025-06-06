@@ -164,21 +164,6 @@ Toolbox.changeSUISphere = (bBrush=true, bEraser=false)=>{
 Selection Utils
 ===========================================================*/
 
-Toolbox.applySelectionToMesh = (mesh) =>{
-    if (!mesh) mesh = Toolbox.mainMesh;
-
-    mesh.material.vertexColors = true;
-
-    Toolbox.clearFaceHighlights(mesh);
-    
-    let faces = Array.from(Toolbox.currSelection).map(
-        index => GeometryHelpers.extractFaceData(index, mesh.geometry)
-    );
-
-    Toolbox.highlightFacesOnObject(faces, mesh);
-    return;
-};
-
 Toolbox.selectMultipleFaces = (brushSize, mesh) => {
     if (!mesh) mesh = Toolbox.mainMesh;
 
@@ -300,6 +285,41 @@ Toolbox.clearFaceHighlights = (mesh) => {
     return true;
 };
 
+Toolbox.highlightVisibleSelections = (selections, mesh) => {
+    if (!mesh) mesh = Toolbox.mainMesh;
+    if (!selections) selections = THOTH.annotations;
+
+    mesh.material.vertexColors = true;
+
+    Toolbox.clearFaceHighlights(mesh);
+
+    // Add previous selections that are visible
+    for (let i=0; i<selections.length; i++) {
+        if (selections[i].visible) {
+            if (selections[i].faceIndices !== undefined) {
+                let faces = Array.from(selections[i].faceIndices).map(
+                    index => GeometryHelpers.extractFaceData(index, mesh.geometry)
+                );
+    
+                if (faces.length !== 0) {
+                    Toolbox.highlightFacesOnObject(faces, mesh, selections[i].color);
+                }
+            }
+        }
+    }
+    // Add current selection
+    if (THOTH.currAnnotation.faceIndices.length !== 0) {
+        let faces = Array.from(THOTH.currAnnotation.faceIndices).map(
+            index => GeometryHelpers.extractFaceData(index, mesh.geometry)
+        );
+
+        if (faces.length !== 0) {
+            Toolbox.highlightFacesOnObject(faces, mesh);
+        } 
+    }
+    return;
+};
+
 /* 
 Brush/Eraser Tool
 ===========================================================*/
@@ -314,17 +334,17 @@ Toolbox.brushTool = (brushSize = Toolbox.brushRadius) => {
 
     // Skip already selected faces
     const newUniqueFaces = newFaces.filter(face => 
-        !Toolbox.currSelection.has(face.index)
+        !THOTH.currAnnotation.faceIndices.has(face.index)
     );
     if (!newUniqueFaces.length) return false;
 
     // Add to current selection
     newUniqueFaces.forEach(face => {
-        Toolbox.currSelection.add(face.index);
+        THOTH.currAnnotation.faceIndices.add(face.index);
     });
 
     // Highlight ALL selected faces
-    Toolbox.applySelectionToMesh();
+    Toolbox.highlightVisibleSelections(THOTH.annotations);
 
     return true;
 };
@@ -339,16 +359,16 @@ Toolbox.eraserTool = (brushSize = Toolbox.brushRadius) => {
 
     // Skip already selected faces
     let newUniqueFaces = newFaces.filter(face => 
-        Toolbox.currSelection.has(face.index)
+        THOTH.currAnnotation.faceIndices.has(face.index)
     );
     if (!newUniqueFaces.length) return false;
 
     // Remove from current selection
     newUniqueFaces.forEach(face => {
-        Toolbox.currSelection.delete(face.index);
+        THOTH.currAnnotation.faceIndices.delete(face.index);
     });
 
-    Toolbox.applySelectionToMesh();
+    Toolbox.highlightVisibleSelections();
     
     return true;
 };
@@ -472,16 +492,16 @@ Toolbox.processLassoSelection = () => {
 
     // Skip already selected faces
     const newUniqueFaces = selectedFaces.filter(
-        face => !Toolbox.currSelection.has(face.index)
+        face => !THOTH.currAnnotation.faceIndices.has(face.index)
     );
     if (!newUniqueFaces.length) return false;
 
     const newUniqueFacesFiltered = GeometryHelpers.visibleFaceFiltering(newUniqueFaces, mesh);
     newUniqueFacesFiltered.forEach(face => {
-        Toolbox.currSelection.add(face.index);
+        THOTH.currAnnotation.faceIndices.add(face.index);
     });
 
-    Toolbox.applySelectionToMesh();
+    Toolbox.highlightVisibleSelections();
 
     return true;
 };
