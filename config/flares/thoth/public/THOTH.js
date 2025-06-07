@@ -19,84 +19,121 @@ Flare setup
 
 THOTH.setup = () => {
     THOTH._bLeftMouseDown = false;
+    
+    THOTH.realize();
 
-    THOTH.initBridge();
-    THOTH.initEventListeners();
+    // Bridge gaps between ATON and THOTH
+    THOTH.ATONISREAL = false;
+    if (THOTH.ATONISREAL) THOTH.ATON2THOTH();
+    else THOTH.bridge();
+
+    // THOTH.initEventListeners();
     THOTH.initHistory();
-
-    THOTH.Mat.init();
+    
     THOTH.FE.init();
+    THOTH.Mat.init();
     THOTH.Toolbox.init();
 
     // List all completed annotations
     THOTH.annotations = [];
-
-    // Selected annotation
-    THOTH.currAnnotation = {
-        name: undefined,
-        visible: true,
-        highlightColor: "#FFFFFF",
-        faceIndices: new Set(),
-        description: undefined
-    };
 };
 
 THOTH.update = () => {
-    THOTH.FE.update();
-    THOTH._queryDataScene = ATON._queryDataScene;
+    // Update querying
+    if (FE.ATONISREAL) {
+        THOTH._queryDataScene = ATON._queryDataScene;
+    }
+    else {
+        THOTH._handleQueryScene();
+    }
+};
+
+/* 
+Ralize
+===========================================================*/
+
+THOTH.realize = () => {
+    const wglopts = {
+        atnialias: true,
+        alpha: true,
+    };
+
+    // Renderer
+    THOTH._renderer = new THREE.WebGLRenderer(wglopts);
+    THOTH._renderer.setSize(window.innerWidth, window.innerHeight);
+
+    // Raycaster
+    THOTH._rcScene = new THREE.Raycaster();
+    THOTH._rcScene.layers.set(ATON.NTYPES.SCENE);
+    THOTH._rcScene.firstHitOnly = true;
+
+    // Querying
+    THOTH._handleQueryScene();
+};
+
+THOTH._handleQueryScene = () => {
+    THOTH._hitsScene = [];
+    
+    THOTH._rcScene.setFromCamera(ATON._screenPointerCoords, ATON.Nav._camera);
+    THOTH._rcScene.intersectObjects(ATON._mainRoot.children, true, THOTH._hitsScene);
+
+    // Process hits
+    const hitsnum = THOTH._hitsScene.length;
+    if (hitsnum <= 0){
+        ATON._queryDataScene = undefined;
+        return;
+    }
+
+    const h = THOTH._hitsScene[0];
+    
+    THOTH._queryDataScene = {};
+    THOTH._queryDataScene.p  = h.point;
+    THOTH._queryDataScene.d  = h.distance;
+    THOTH._queryDataScene.o  = h.object;
+    THOTH._queryDataScene.uv = h.uv;
+
+    // Compute boundsTree if not computed
+    if (!THOTH._queryDataScene.o.geometry.boundsTree) {
+        THOTH._queryDataScene.o.geometry.computeBoundsTree();
+        THOTH.log("Computed visible BVH");
+    }
+    
+    // Normals
+    // if (!THOTH._bQueryNormals) return;
+    // if (!h.face) return;
+    // if (!h.face.normal) return;
+
+    // THOTH._queryDataScene.matrixWorld = new THREE.Matrix3().getNormalMatrix( h.object.matrixWorld );
+    // THOTH._queryDataScene.n = h.face.normal.clone().applyMatrix3( THOTH._queryDataScene.matrixWorld ).normalize();
+};
+
+THOTH.bridge = () => {
+    // Placeholder function to move modules from ATON to THOTH
+    THOTH._camera = ATON.Nav._camera;
+    
+    THOTH._mSelectorSphere = ATON.SUI._mSelectorSphere;
+    
+    THOTH._bRealized = ATON.FE._bRealized;
+};
+
+// Remove THOTH overhead when used with ATON 
+THOTH.ATON2THOTH = () => {
+    THOTH.log("Transfering functionalities from ATON");
+
     THOTH._renderer = ATON._renderer;
+    THOTH._rcScene  = ATON._rcScene;
+    THOTH._camera   = ATON.Nav._camera;
+
+    THOTH._queryDataScene = ATON._queryDataScene;
+    
+    THOTH._mSelectorSphere = ATON.SUI._mSelectorSphere;
+    
+    THOTH._bRealized = ATON.FE._bRealized;
 };
 
 /* 
 Inits
 ===========================================================*/
-
-THOTH.initBridge = async () => {
-    // Placeholder function to move modules from ATON to THOTH
-    THOTH.log("Transfering functionalities from ATON");
-
-    while(ATON._queryDataScene === undefined) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    THOTH.PATH_RES = ATON.PATH_RES;
-
-    THOTH._queryDataScene = ATON._queryDataScene;
-    THOTH._renderer       = ATON._renderer;
-    THOTH._camera         = ATON.Nav._camera;
-
-    THOTH._mSelectorSphere = ATON.SUI._mSelectorSphere;
-
-    THOTH._bRealized = ATON.FE._bRealized;
-};
-
-THOTH.initEventListeners = () => {
-    THOTH.on = ATON.on;
-    // THOTH.fire = ATON.fire
-
-    let el = ATON._renderer.domElement;
-
-    // Left mouse down
-    el.addEventListener('mousedown', (e) => {
-        if (e.button === 0) {
-            THOTH._bLeftMouseDown = true;
-            THOTH.e = e;
-            ATON.fire("MouseLeftButtonDown");
-        }
-    });
-    // Left mouse up
-    el.addEventListener('mouseup', (e) => {
-        if (e.button === 0) {
-            THOTH._bLeftMouseDown = false;
-            THOTH.e = e;
-            ATON.fire("MouseLeftButtonUp");
-        }
-    });
-    // Mouse move
-    el.addEventListener('mousemove', (e) => {
-        THOTH.e = e;
-        ATON.fire("MouseMove");
-    })
-};
 
 THOTH.initHistory = () => {
     THOTH.undoStack = [];
@@ -171,21 +208,25 @@ THOTH.redo = () => {
 Annotation Management
 ===========================================================*/
 
-THOTH.createAnnotation = () => {
-    // const currAnnotation = {
-    //     name: undefined,
-    //     visible: true,
-    //     highlightColor: "#FFFFFF",
-    //     faceIndices: undefined,
-    //     description: undefined
-    // };
+THOTH.createNewAnnotation = (newAnnotationName) => {
+    if (!newAnnotationName) newAnnotationName = "Untitled Annotation";
 
-    THOTH.annotations.push(THOTH.currAnnotation);
+    // Default annotation params
+    const newAnnotation = {
+        name: newAnnotationName,
+        visible: true,
+        highlightColor: "#FFFFFF",
+        faceIndices: new Set(),
+        description: undefined,
+        numberOfFaces: 0,
+    };
+
+    // Create annotation folder 
+    THOTH.FE.createNewAnnotationUI(newAnnotation);
     
-    THOTH.FE.createAnnotationFolder(THOTH.annotations[0]);
+    // Add to annotation array
+    THOTH.annotations.push(newAnnotation);
 };
-
-// TODO DEBUG TOMORROW
 
 THOTH.editAnnotationName = (annotation, newName) => {
     // Edit annotation folder name ???
@@ -205,7 +246,9 @@ THOTH.editSelection = (annotation) => {
     THOTH.FE.uiSetAnnotatorMode();
     
     if (annotation.faceIndices !== undefined) {
-        THOTH.currAnnotation.faceIndices = annotation.faceIndices;
+        annotation.faceIndices.forEach(faceIndex => {
+            THOTH.currAnnotation.faceIndices.add(faceIndex)
+        });
     };
 };
 

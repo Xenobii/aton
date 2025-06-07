@@ -307,16 +307,6 @@ Toolbox.highlightVisibleSelections = (selections, mesh) => {
             }
         }
     }
-    // Add current selection
-    if (THOTH.currAnnotation.faceIndices.length !== 0) {
-        let faces = Array.from(THOTH.currAnnotation.faceIndices).map(
-            index => GeometryHelpers.extractFaceData(index, mesh.geometry)
-        );
-
-        if (faces.length !== 0) {
-            Toolbox.highlightFacesOnObject(faces, mesh);
-        } 
-    }
     return;
 };
 
@@ -324,7 +314,11 @@ Toolbox.highlightVisibleSelections = (selections, mesh) => {
 Brush/Eraser Tool
 ===========================================================*/
 
-Toolbox.brushTool = (brushSize = Toolbox.brushRadius) => {
+Toolbox.brushTool = (currAnnotationParams, brushSize = Toolbox.brushRadius) => {
+    if (!currAnnotationParams) {
+        console.warn("No selected annotation");
+        return false;
+    }
     if (!THOTH._queryDataScene?.o) return false; // Only work when over mesh
     const mesh = Toolbox.mainMesh;
 
@@ -334,13 +328,13 @@ Toolbox.brushTool = (brushSize = Toolbox.brushRadius) => {
 
     // Skip already selected faces
     const newUniqueFaces = newFaces.filter(face => 
-        !THOTH.currAnnotation.faceIndices.has(face.index)
+        !currAnnotationParams.faceIndices.has(face.index)
     );
     if (!newUniqueFaces.length) return false;
 
     // Add to current selection
     newUniqueFaces.forEach(face => {
-        THOTH.currAnnotation.faceIndices.add(face.index);
+        currAnnotationParams.faceIndices.add(face.index);
     });
 
     // Highlight ALL selected faces
@@ -349,7 +343,11 @@ Toolbox.brushTool = (brushSize = Toolbox.brushRadius) => {
     return true;
 };
 
-Toolbox.eraserTool = (brushSize = Toolbox.brushRadius) => {
+Toolbox.eraserTool = (currAnnotationParams, brushSize = Toolbox.brushRadius) => {
+    if (!currAnnotationParams) {
+        console.warn("No selected annotation");
+        return false;
+    }
     if (!THOTH._queryDataScene?.o) return false; // Only work when over mesh
     const mesh = Toolbox.mainMesh;
 
@@ -359,13 +357,13 @@ Toolbox.eraserTool = (brushSize = Toolbox.brushRadius) => {
 
     // Skip already selected faces
     let newUniqueFaces = newFaces.filter(face => 
-        THOTH.currAnnotation.faceIndices.has(face.index)
+        currAnnotationParams.faceIndices.has(face.index)
     );
     if (!newUniqueFaces.length) return false;
 
     // Remove from current selection
     newUniqueFaces.forEach(face => {
-        THOTH.currAnnotation.faceIndices.delete(face.index);
+        currAnnotationParams.faceIndices.delete(face.index);
     });
 
     Toolbox.highlightVisibleSelections();
@@ -419,10 +417,15 @@ Toolbox.updateLasso = (event) => {
     Toolbox.lassoCtx.stroke();
 };
 
-Toolbox.endLasso = () => {
+Toolbox.endLasso = (currAnnotationParams) => {
+    if (!currAnnotationParams) {
+        console.warn("No selected annotation");
+        return false;
+    }
+
     if (!Toolbox.lassoState.isActive) return;
 
-    Toolbox.processLassoSelection();
+    Toolbox.processLassoSelection(currAnnotationParams);
     Toolbox.cleanupLasso();
     Toolbox.lassoState.isActive = false;
 };
@@ -439,7 +442,7 @@ Toolbox.cleanupLasso = () => {
     Toolbox.lassoState.points = [];
 };
 
-Toolbox.processLassoSelection = () => {
+Toolbox.processLassoSelection = (currAnnotationParams) => {
     if (!Toolbox.lassoState.points || Toolbox.lassoState.points.length < 3) return;
     if (!Toolbox.mainMesh) return;
 
@@ -492,13 +495,13 @@ Toolbox.processLassoSelection = () => {
 
     // Skip already selected faces
     const newUniqueFaces = selectedFaces.filter(
-        face => !THOTH.currAnnotation.faceIndices.has(face.index)
+        face => !currAnnotationParams.faceIndices.has(face.index)
     );
     if (!newUniqueFaces.length) return false;
 
     const newUniqueFacesFiltered = GeometryHelpers.visibleFaceFiltering(newUniqueFaces, mesh);
     newUniqueFacesFiltered.forEach(face => {
-        THOTH.currAnnotation.faceIndices.add(face.index);
+        currAnnotationParams.faceIndices.add(face.index);
     });
 
     Toolbox.highlightVisibleSelections();

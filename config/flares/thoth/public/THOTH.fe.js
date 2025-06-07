@@ -11,6 +11,7 @@ let FE = {};
 FE.SELACTION_STD    = 1;
 FE.SELACTION_EDIT   = 2;
 
+FE.TOOL_NONE   = 0;
 FE.TOOL_BRUSH  = 1;
 FE.TOOL_ERASER = 2;
 FE.TOOL_LASSO  = 3;
@@ -27,411 +28,321 @@ FE.init = async () => {
         await new Promise(resolve => setTimeout(resolve, 100));
     }
     
-    FE.PATH_RES_ICONS = ATON.PATH_RES+"icons/";
-    FE.uiSetup();
-    FE.datGUISetup();
+    FE._tool = FE.TOOL_NONE;
+    FE.currAnnotationParams = undefined;
+
+    FE.toolSizes = {
+        brushScale  : 0.0,
+        eraserScale : 0.0,
+    };
+    FE.brushSize  = FE.computeToolRadius(FE.toolSizes.brushScale),
+    FE.eraserSize = FE.computeToolRadius(FE.toolSizes.eraserScale),
+
     FE.setupEventHandlers();
-
-}; 
-
-FE.update = () => {
-    FE.realTimeEventHandlers();
-};
-
-/* 
-UI Layout
-===========================================================*/
-
-FE.uiSetup = () => {
-    // FE.uiAddButtonAnnotatorMode("idTopToolbar");
-};
-
-FE.datGUISetup =() => {
-    // Create a new container
-    const guiContainer = document.createElement('div');
-    guiContainer.id = 'guicanvas';
-    guiContainer.style.position = 'absolute';
-    guiContainer.style.top = '0px';          
-    guiContainer.style.right = '0px';   
-    guiContainer.style.zIndex = '120';
-    document.body.appendChild(guiContainer);
-
-    // Apply styling options (css)
-    FE.datGUIStyle();
-
-    // Attach dat gui
-    FE.gui = new dat.GUI({ autoPlace: false });
-    guiContainer.appendChild(FE.gui.domElement);
-
-    const actions = {
-        create: () => {
-            THOTH.createAnnotation()
-        }
-    };
-
-    // Add annotation folder
-    FE.annotationFolder = FE.gui.addFolder('Annotations');
-    FE.annotationFolder
-        .add(actions, 'create')
-        .name('Create Annotation');
-
-    // FE.annotationFolder.open();  // Open it :)
-};
-
-FE.datGUIStyle = () => {
-    const style = document.createElement('style');
-    style.innerHTML = `
-    .dg {
-    font: 11px 'Lucida Grande', sans-serif;
-    line-height: 1;
-    color: #eee;
-    }
-
-    .dg .cr {
-    clear: both;
-    padding: 0;
-    height: 27px;
-    line-height: 27px;
-    overflow: hidden;
-    }
-
-    .dg .property-name {
-    float: left;
-    width: 40%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    }
-
-    .dg .c input[type="text"],
-    .dg .c select {
-    float: right;
-    width: 58%;
-    margin-top: 2px;
-    transform: scale(1);
-    }
-
-    .dg input[type="checkbox"] {
-    float: right;
-    margin-top: 4px;
-    margin-right: 0px;
-    transform: scale(0.6);
-    }
-    `;
-    document.head.appendChild(style);
+    FE.setupUI();
 
 };
-
-/* 
-Annotation Management
-===========================================================*/
-
-FE.createAnnotationFolder = (annotation) => {
-    const label = `Annotation ${THOTH.annotations.length}`;
-    const currAnnotationFolder = FE.annotationFolder.addFolder(label);
-    annotation.name = label;
-
-    // Name editor
-    currAnnotationFolder
-        .add(annotation, 'name')
-        .name('Name')
-        .onChange((newName) => {THOTH.editAnnotationName(annotation, newName)});
-    
-    // Visibility toggle
-    currAnnotationFolder
-        .add(annotation, 'visible')
-        .name('Visible')
-        .onChange((isVisible) => THOTH.toggleVisibility(annotation, isVisible));
-    // Color Change
-
-    // Delete annotation
-    const actions = {
-        delete: () => {
-            FE.annotationFolder.removeFolder(currAnnotationFolder);
-            // THOTH.annotations[THOTH.annotations.length]
-        },
-        edit: () => {
-            THOTH.editSelection(annotation);
-        },
-        apply: () => {
-            THOTH.applyAnnotation(annotation);
-        }
-    };
-    currAnnotationFolder
-        .add(actions, 'edit')
-        .name('Edit Selection');
-    
-    currAnnotationFolder
-        .add(actions, 'apply')
-        .name('Apply Annotation')
-    
-    currAnnotationFolder
-        .add(actions, 'delete')
-        .name('Delete Annotation');
-};
-
-FE.uiSetAnnotatorMode = () => {
-    $("#idTopToolbar").html("");
-
-    FE.uiAddButtonBrush("idTopToolbar");
-    FE.uiAddButtonEraser("idTopToolbar");
-    FE.uiAddButtonLasso("idTopToolbar");
-};
-
-FE.uiSetDefaultMode = () => {
-    $("#idTopToolbar").html("");
-};  
 
 /* 
 Event Handlers
 ===========================================================*/
 
 FE.setupEventHandlers = () => {
-    THOTH.on("KeyPress", (k) => {
-        // Annotator UI
-        if (k === 'j') {
-            FE.uiSetAnnotatorMode();
-        }
-        // Brush Tool
-        if (k === 'q') {
-            if (FE._actState === FE.SELACTION_EDIT) {
-                if (FE._tool !== FE.TOOL_BRUSH) {
-                    FE.uiSetAnnotatorMode();
-                    FE.uiSwitchButton("brush", true);
-                    FE.uiSwitchButton("eraser", false);
-                    FE.uiSwitchButton("lasso", false);
-                    
-                    ATON.Nav.setUserControl(false);
-                    
-                    FE._tool = FE.TOOL_BRUSH;
-                }
-                else {
-                    FE.uiSwitchButton("brush", false);
-                    ATON.Nav.setUserControl(true);
-                    FE._tool = undefined;
-                }
+    // let el = ATON._renderer.domElement;
+    let el = document;
+
+    // Left mouse down
+    el.addEventListener('mousedown', (e) => {
+        if (e.button === 0) {
+            THOTH._bLeftMouseDown = true;
+
+            // Record state
+            
+            // Brush
+            if (FE._tool === FE.TOOL_BRUSH) {
+                THOTH.Toolbox.brushTool(FE.currAnnotationParams, FE.brushSize);
             }
-        }
-        // Eraser Tool
-        if (k === 'w') {
-            if (FE._actState === FE.SELACTION_EDIT) {
-                if (FE._tool !== FE.TOOL_ERASER) {
-                    FE.uiSwitchButton("brush", false);
-                    FE.uiSwitchButton("eraser", true);
-                    FE.uiSwitchButton("lasso", false);
-                    
-                    ATON.Nav.setUserControl(false);
-                    
-                    FE._tool = FE.TOOL_ERASER;
-                }
-                else {
-                    FE.uiSwitchButton("eraser", false);
-                    ATON.Nav.setUserControl(true);
-                    FE._tool = undefined;
-                }
+
+            // Eraser
+            if (FE._tool === FE.TOOL_ERASER) {
+                THOTH.Toolbox.eraserTool(FE.currAnnotationParams, FE.eraserSize);
             }
-        }
-        // Lasso Tool
-        if (k === 'r') {
-            if (FE._actState === FE.SELACTION_EDIT) {
-                if (FE._tool !== FE.TOOL_LASSO) {
-                    FE.uiSwitchButton("brush", false);
-                    FE.uiSwitchButton("eraser", false);
-                    FE.uiSwitchButton("lasso", true);
 
-                    ATON.Nav.setUserControl(false);
-
-                    FE._tool = FE.TOOL_LASSO;
-                }
-                else {
-                    FE.uiSwitchButton("lasso", false);
-                    ATON.Nav.setUserControl(true);
-                    FE._tool = undefined;
-                }
-            }
-        }
-        // Decrease brush radius
-        if (k === '[') {
-            FE.uiSetAnnotatorMode();
-            THOTH.Toolbox.brushRadius -= 1;
-            THOTH.Toolbox.changeSUISphere();
-        }
-        // Increase brush radius
-        if (k === ']') {
-            FE.uiSetAnnotatorMode();
-            THOTH.Toolbox.brushRadius += 1;
-            THOTH.Toolbox.changeSUISphere();
-        }
-        // Undo
-        if (k === 'z') {
-            THOTH.undo();
-        }
-        // Redo
-        if (k === 'y') {
-            THOTH.redo();
-        }
-
-    })
-
-    THOTH.on("MouseLeftButtonDown", () => {
-        if (FE._actState === FE.SELACTION_EDIT) {
-            THOTH.recordState();
-
-            // Lasso start
+            // Lasso
             if (FE._tool === FE.TOOL_LASSO) {
-                THOTH.Toolbox.lassoTool(THOTH.e);
+                THOTH.Toolbox.lassoTool(e);
             }
         }
-    })
+    });
 
-    THOTH.on("MouseMove", () => {
-        if (FE._actState === FE.SELACTION_EDIT) {
-            // Lasso update
-            if (FE._tool === FE.TOOL_LASSO && THOTH._bLeftMouseDown) {
-                THOTH.Toolbox.lassoTool(THOTH.e);
-            }
-        }
-    }) 
+    // Left mouse up
+    el.addEventListener('mouseup', (e) => {
+        if (e.button === 0) {
+            THOTH._bLeftMouseDown = false;
 
-    THOTH.on("MouseLeftButtonUp", () => {
-        if (FE._actState === FE.SELACTION_EDIT) {
-            // Lasso end
             if (FE._tool === FE.TOOL_LASSO) {
-                THOTH.Toolbox.endLasso();
+                THOTH.Toolbox.endLasso(FE.currAnnotationParams);
             }
         }
-    })
+    });
+
+    // Mouse Move
+    el.addEventListener('mousemove', (e) => {
+        if (THOTH._bLeftMouseDown) {
+            // Brush
+            if (FE._tool === FE.TOOL_BRUSH) {
+                THOTH.Toolbox.brushTool(FE.currAnnotationParams, FE.brushSize);
+            }
+
+            // Eraser
+            if (FE._tool === FE.TOOL_ERASER) {
+                THOTH.Toolbox.eraserTool(FE.currAnnotationParams, FE.eraserSize);
+            }
+
+            // Lasso
+            if (FE._tool === FE.TOOL_LASSO) {
+                THOTH.Toolbox.lassoTool(e);
+            }
+        }
+    });
+
+    // Key Press
+    el.addEventListener('keydown', (k) => {
+        // Increase tool radius
+        if (k.key === '['){
+            // Brush
+            if (FE._tool === FE.TOOL_BRUSH) {
+                FE.toolSizes.brushScale = FE.toolSizes.brushScale - 1;
+                FE.brushSize  = FE.computeToolRadius(FE.toolSizes.brushScale);
+                FE.toolboxPane.refresh();
+            }
+            // Eraser
+            if (FE._tool === FE.TOOL_ERASER) {
+                FE.toolSizes.eraserScale = FE.toolSizes.eraserScale - 1;
+                FE.eraserSize  = FE.computeToolRadius(FE.toolSizes.eraserScale);
+                FE.toolboxPane.refresh();
+            }
+        }
+        
+        // Dencrease tool radius
+        if (k.key === ']'){
+            if (FE._tool === FE.TOOL_BRUSH) {
+                FE.toolSizes.brushScale = FE.toolSizes.brushScale + 1;
+                FE.brushSize  = FE.computeToolRadius(FE.brushScale);
+                FE.toolboxPane.refresh();
+            }
+            if (FE._tool === FE.TOOL_ERASER) {
+                FE.toolSizes.eraserScale = FE.toolSizes.eraserScale + 1;
+                FE.eraserSize  = FE.computeToolRadius(FE.toolSizes.eraserScale);
+                FE.toolboxPane.refresh();
+            }
+        }
+    });
+
 };
 
-FE.realTimeEventHandlers = () => {
-    if (FE._actState === FE.SELACTION_EDIT) {
-        // Brush 
-        if (FE._tool === FE.TOOL_BRUSH) {
-            if (THOTH._bLeftMouseDown) {
-                THOTH.Toolbox.brushTool();
-            }
-        }
-        // Eraser
-        if (FE._tool === FE.TOOL_ERASER) {
-            if (THOTH._bLeftMouseDown) {
-                THOTH.Toolbox.eraserTool();
-            }
-        }
-    }
-};
-
-FE.disableTools = () => {
-    FE._tool = undefined;
-
-    FE.uiSwitchButton("brush", false);
-    FE.uiSwitchButton("eraser", false);
-    FE.uiSwitchButton("lasso", false);
+FE.computeToolRadius = (r) => {
+    return (0.25 * 1.2**r);
 };
 
 /* 
-Buttons
+UI Setup
 ===========================================================*/
 
-FE.uiAddButton = (idcontainer, icon, onPress, tooltip)=>{
-    let iconurl;
-    let iconid;
+FE.setupUI =() => {
+    // Create new containers
+    const TopRightContainer = document.createElement('div');
+    TopRightContainer.id = 'guicanvas';
+    TopRightContainer.style.position = 'absolute';
+    TopRightContainer.style.top = '0px';          
+    TopRightContainer.style.right = '0px';   
+    TopRightContainer.style.zIndex = '120';
+    document.body.appendChild(TopRightContainer);
 
-    if (icon.endsWith(".png")){
-        iconurl = icon;
-        iconid  = icon.slice(0,-4);
-    }
-    else {
-        // Temporary: replace with standard res icons
-        iconurl = FE.PATH_RES_ICONS+icon+".png";
-        iconid  = icon;
-    }
+    const bottomRightContainer = document.createElement('div');
+    bottomRightContainer.id = 'guicanvas';
+    bottomRightContainer.style.position = 'absolute';
+    bottomRightContainer.style.bottom = '100px';          
+    bottomRightContainer.style.right = '0px';   
+    bottomRightContainer.style.zIndex = '120';
+    document.body.appendChild(bottomRightContainer);
 
-    let elid = "btn-"+iconid;
-    //let htmlcode = "<div id='"+elid+"' class='atonBTN' ><img src='"+iconurl+"'></div>";
-    let el = $("<div id='"+elid+"' class='atonBTN' ><img src='"+iconurl+"'></div>");
+    const bottomLeftContainer = document.createElement('div');
+    bottomLeftContainer.id = 'guicanvas';
+    bottomLeftContainer.style.position = 'absolute';
+    bottomLeftContainer.style.bottom = '100px';          
+    bottomLeftContainer.style.left = '0px';   
+    bottomLeftContainer.style.zIndex = '120';
+    document.body.appendChild(bottomLeftContainer);
+
+    // Toolbox
+    FE.toolboxPane = new Pane({
+        container: bottomLeftContainer,
+        title: 'Toolbox',
+        expanded: true,
+    });
+
+    // Layer Management
+    FE.layerManagementPane = new Pane({
+        container: TopRightContainer, 
+        title: 'Layer Management',
+        expanded: true,
+    });
+
+    // Quick Select Layer Pane
+    FE.layerSelectionPane = new Pane({
+        container: TopRightContainer,
+        title: 'Annotations',
+        expanded: true,
+    });
     
-    $("#"+idcontainer).append(el);
+    // Details Pane
+    FE.detailsPane = new Pane({
+        container: bottomRightContainer,
+        title: 'Annotation details',
+        expanded: true,
+    });
 
-    if (onPress) el.click( onPress ); //$("#"+elid).click( onPress );
-    if (tooltip) el.attr("title", tooltip); //$("#"+elid).attr("title", tooltip);
+    FE.setupToolboxPane();
+    FE.setupLayerManagementPane();
 };
 
-FE.uiSwitchButton = (iconid, b)=>{
-    if (b) $("#btn-"+iconid).addClass("switchedON");
-    else $("#btn-"+iconid).removeClass("switchedON");
-};
-
-FE.uiAddButtonUndo = (idcontainer) => {
-    FE.uiAddButton(idcontainer, "undo", ()=>{
-        // Logic
-    }, "undo");
-};
-
-FE.uiAddButtonRedo = (idcontainer) => {
-    FE.uiAddButton(idcontainer, "redo", ()=>{
-        // Logic
-    }, "redo");
-};
-
-FE.uiAddButtonBrush = (idcontainer) => {
-    FE.uiAddButton(idcontainer, "brush", ()=>{
-        if (FE._actState === FE.SELACTION_EDIT) {
-            if (FE._tool !== FE.TOOL_BRUSH) {
-                FE.uiSwitchButton("brush", true);
-                FE.uiSwitchButton("eraser", false);
-                FE.uiSwitchButton("lasso", false);
-
-                ATON.Nav.setUserControl(false);
-                
-                FE._tool = FE.TOOL_BRUSH;
-            }
-            else {
-                FE.uiSwitchButton("brush", false);
-                ATON.Nav.setUserControl(true);
-                FE._tool = undefined;
-            }
+FE.setupToolboxPane = () => {
+    // Brush
+    const btnBrush = FE.toolboxPane.addButton({
+        title: 'Brush',
+    });
+    btnBrush.on('click', () => {
+        if (FE._tool !== FE.TOOL_BRUSH) {
+            // Disable Nav
+            ATON.Nav.setUserControl(false);
+            
+            FE._tool = FE.TOOL_BRUSH;
+            FE.updateToolRadiusUI();
         }
-    }, "brush");
+    });
+
+    // Eraser
+    const btnEraser = FE.toolboxPane.addButton({
+        title: 'Eraser',
+    });
+    btnEraser.on('click', () => {
+        if (FE._tool !== FE.TOOL_ERASER) {
+            // Disable Nav
+            ATON.Nav.setUserControl(false);
+            
+            FE._tool = FE.TOOL_ERASER;
+            FE.updateToolRadiusUI();
+        }
+    });
+
+    // Lasso
+    const btnLasso = FE.toolboxPane.addButton({
+        title: 'Lasso',
+    });
+    btnLasso.on('click', () => {
+        if (FE._tool !== FE.TOOL_LASSO) {
+            // Disable Nav
+            ATON.Nav.setUserControl(false);
+            
+            FE._tool = FE.TOOL_LASSO;
+            FE.updateToolRadiusUI();
+        }
+    });
+
+    // None
+    const btnNone = FE.toolboxPane.addButton({
+        title: 'None',
+    });
+    btnNone.on('click', () => {
+        if (FE._tool !== FE.TOOL_NONE) {
+            // Enable Nav
+            ATON.Nav.setUserControl(true);
+
+            FE._tool = FE.TOOL_NONE;
+            FE.updateToolRadiusUI();
+        }
+    });
 };
 
-FE.uiAddButtonEraser = (idcontainer) => {
-    FE.uiAddButton(idcontainer, "eraser", ()=>{
-        if (FE._actState === FE.SELACTION_EDIT) {
-            if (FE._tool !== FE.TOOL_ERASER) {
-                FE.uiSwitchButton("brush", false);
-                FE.uiSwitchButton("eraser", true);
-                FE.uiSwitchButton("lasso", false);
+FE.updateToolRadiusUI = () => {
+    if (FE.toolboxPane.brushScale)  FE.toolboxPane.brushScale.dispose();
+    if (FE.toolboxPane.eraserScale) FE.toolboxPane.eraserScale.dispose();
+    
+    if (FE._tool === FE.TOOL_BRUSH) {
+        FE.toolboxPane.brushScale = FE.toolboxPane.addBinding(FE.toolSizes, 'brushScale', {
+            min: -10,
+            max:  10,
+            step: 1,
+        });
+    }
+    if (FE._tool === FE.TOOL_ERASER) {
+        FE.toolboxPane.eraserScale = FE.toolboxPane.addBinding(FE.toolSizes, 'eraserScale', {
+            min: -10,
+            max:  10,
+            step: 1,
+        });
+    }
 
-                ATON.Nav.setUserControl(false);
-
-                FE._tool = FE.TOOL_ERASER;
-            }
-            else {
-                FE.uiSwitchButton("eraser", false);
-                ATON.Nav.setUserControl(true);
-                FE._tool = undefined;
-            }
-        }
-    }, "eraser");
+    // Event listener for changes
+    // Brush
+    if (FE.toolboxPane.brushScale) {
+        FE.toolboxPane.brushScale.on('change', (e) => {
+            FE.brushSize = FE.computeToolRadius(FE.toolSizes.brushScale);
+        });
+    }
+    // Eraser 
+    if (FE.toolboxPane.eraserScale) {
+        FE.toolboxPane.eraserScale.on('change', (e) => {
+            FE.eraserSize = FE.computeToolRadius(FE.toolSizes.eraserScale);
+        });
+    }
 };
 
-FE.uiAddButtonLasso = (idcontainer) => {
-    FE.uiAddButton(idcontainer, "lasso", ()=>{
-        if (FE._actState === FE.SELACTION_EDIT) {
-            if (FE._tool !== FE.TOOL_LASSO) {
-                FE.uiSwitchButton("brush", false);
-                FE.uiSwitchButton("eraser", false);
-                FE.uiSwitchButton("lasso", true);
+FE.updateToolModeUI = () => {
 
-                ATON.Nav.setUserControl(false);
+};
 
-                FE._tool = FE.TOOL_LASSO;
-            }
-            else {
-                FE.uiSwitchButton("lasso", false);
-                ATON.Nav.setUserControl(true);
-                FE._tool = undefined;
-            }
-        }
-    }, "lasso");
+FE.setupLayerManagementPane = () => {
+    const addAnnotationBtn = FE.layerManagementPane.addButton({
+        title: "New Annotation",
+    });
+
+    addAnnotationBtn.on('click', () => {
+        THOTH.createNewAnnotation();
+    });
+};
+
+FE.createNewAnnotationUI = (annotationParams) => {
+    const newAnnotation = FE.layerSelectionPane.addButton({
+        title: annotationParams.name,
+    });
+    
+    newAnnotation.on('click', () => {
+        // Switch to current annotation
+        FE.currAnnotationParams = annotationParams;
+        FE.setupDetailsUI(annotationParams);
+    });
+};
+
+FE.setupDetailsUI = (annotationParams) => {
+    if (FE.detailTabs) FE.detailTabs.dispose();
+    
+    FE.detailTabs = FE.detailsPane.addTab({
+        pages: [
+            {title: "General"},
+            {title: "Advanced"},
+        ],
+    });
+
+    FE.visible = FE.detailTabs.pages[0].addBinding(annotationParams, 'visible');
+    FE.color   = FE.detailTabs.pages[0].addBinding(annotationParams, 'highlightColor');
+
+    // Event listeners
+    FE.visible.on('change', (e) => {
+        // updateVisiblility
+    });
+    FE.color.on('change', (e) => {
+        // updateColor
+    })
 };

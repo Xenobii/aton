@@ -3,7 +3,7 @@
 
     "client":{
         "files": [
-            "dat.gui.min.js",
+            "tweakpane-4.0.5.js",
             "THOTH.helpers.js",
             "THOTH.geometryhelpers.js",
             "THOTH.mat.js",
