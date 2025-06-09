@@ -30,6 +30,7 @@ FE.init = async () => {
     
     FE._tool = FE.TOOL_NONE;
     FE.currAnnotationParams = undefined;
+    FE.annotationButtons = [];
 
     FE.toolSizes = {
         brushScale  : 0.0,
@@ -317,7 +318,10 @@ FE.createNewAnnotationUI = (annotationParams) => {
     const newAnnotation = FE.layerSelectionPane.addButton({
         title: annotationParams.name,
     });
+
+    FE.annotationButtons.splice(annotationParams.index - 1, 0, newAnnotation);
     
+    // Event handler
     newAnnotation.on('click', () => {
         // Switch to current annotation
         FE.currAnnotationParams = annotationParams;
@@ -335,14 +339,30 @@ FE.setupDetailsUI = (annotationParams) => {
         ],
     });
 
+    // Attributes
+    FE.name    = FE.detailTabs.pages[0].addBinding(annotationParams, 'name'); 
     FE.visible = FE.detailTabs.pages[0].addBinding(annotationParams, 'visible');
-    FE.color   = FE.detailTabs.pages[0].addBinding(annotationParams, 'highlightColor');
+    FE.color   = FE.detailTabs.pages[0].addBinding(annotationParams, 'highlightColor', {
+        picker: 'inline',
+        expanded: true,
+    });
+
+    // Buttons
+    FE.delete  = FE.detailTabs.pages[0].addButton({
+        title: "Delete Annotation",
+    });
 
     // Event listeners
-    FE.visible.on('change', (e) => {
-        // updateVisiblility
+    FE.name.on('change', () => {
+        THOTH.editAnnotationName(annotationParams);
     });
-    FE.color.on('change', (e) => {
-        // updateColor
-    })
+    FE.visible.on('change', () => {
+        THOTH.updateVisibility();
+    });
+    FE.color.on('change', () => {
+        THOTH.updateVisibility();
+    });
+    FE.delete.on('click', () => {
+        THOTH.deleteAnnotation(annotationParams);
+    });
 };

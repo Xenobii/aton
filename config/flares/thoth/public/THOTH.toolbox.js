@@ -55,7 +55,8 @@ Toolbox.initQuerying = async () => {
 };
 
 Toolbox.initColors = () => {
-    Toolbox.highlightColor = THOTH.Mat.colors.white
+    // Toolbox.highlightColor = THOTH.Mat.colors.green;
+    Toolbox.highlightColor = '#ff0000'
     Toolbox.defaultColor   = THOTH.Mat.colors.white;
     Toolbox.brushColor     = THOTH.Mat.colors.green;
     Toolbox.eraserColor    = THOTH.Mat.colors.orange;
@@ -225,43 +226,51 @@ Toolbox.selectMultipleFaces = (brushSize, mesh) => {
 Visualization
 ===========================================================*/
 
+Toolbox.hex2rgb = (hex) => {
+    // Also normalize
+    const r = parseInt(hex.slice(1, 3), 16)/255;
+    const g = parseInt(hex.slice(3, 5), 16)/255;
+    const b = parseInt(hex.slice(5, 7), 16)/255;
+    return {r, g, b};
+};
+
 Toolbox.highlightFacesOnObject = (selectedFaces, mesh, color) => {
     if (!selectedFaces || selectedFaces.length === 0) return false;
     if (!mesh) mesh   = Toolbox.mainMesh;
     if (!color) color = Toolbox.highlightColor;
 
+    // Convert to RGB
+    const rgbColor = Toolbox.hex2rgb(color); 
+
     const geometry  = mesh.geometry;
     const colorAttr = geometry.attributes.color;
     const indexAttr = geometry.index;
-
-    const colors = colorAttr.array;
-    const r = color.r, g = color.g, b = color.b;
     
+    const colors = colorAttr.array;
+    const stride = colorAttr.itemSize;
+    const r = rgbColor.r, g = rgbColor.g, b = rgbColor.b;
+    
+    const writeVertex = (base) => {
+        colors[base    ] = r;
+        colors[base + 1] = g;
+        colors[base + 2] = b;
+    }
+
     if (indexAttr) {
         // Indexed geometry
         const indices = indexAttr.array;
-        for (let i = 0; i < selectedFaces.length; i++) {
-            const faceIndex = selectedFaces[i].index;
-
-            const a = indices[faceIndex * 3];
-            const b = indices[faceIndex * 3 + 1];
-            const c = indices[faceIndex * 3 + 2];
-
-            const ai = a * 3, bi = b * 3, ci = c * 3;
-            colors[ai] = r; colors[ai + 1] = g; colors[ai + 2] = b;
-            colors[bi] = r; colors[bi + 1] = g; colors[bi + 2] = b;
-            colors[ci] = r; colors[ci + 1] = g; colors[ci + 2] = b;
+        for (const {index:face} of selectedFaces){
+            writeVertex(indices[face * 3    ] * stride);
+            writeVertex(indices[face * 3 + 1] * stride);
+            writeVertex(indices[face * 3 + 2] * stride);
         }
     } else {
         // Non-indexed geometry
-        for (let i = 0; i < selectedFaces.length; i++) {
-            const faceStart = selectedFaces[i].index * 9;
-            for (let j = 0; j < 3; j++) {
-                const vertexIndex = faceStart + j * 3;
-                colors[vertexIndex]     = r;
-                colors[vertexIndex + 1] = g;
-                colors[vertexIndex + 2] = b;
-            }
+        for (const {index:face} of selectedFaces){
+            const faceStart = face * 3 * stride;
+            writeVertex(faceStart);
+            writeVertex(faceStart + stride);
+            writeVertex(faceStart + 2 * stride);
         }
     }
 
@@ -289,20 +298,25 @@ Toolbox.highlightVisibleSelections = (selections, mesh) => {
     if (!mesh) mesh = Toolbox.mainMesh;
     if (!selections) selections = THOTH.annotations;
 
+    if (mesh === undefined) return false;
+
     mesh.material.vertexColors = true;
 
     Toolbox.clearFaceHighlights(mesh);
 
     // Add previous selections that are visible
     for (let i=0; i<selections.length; i++) {
-        if (selections[i].visible) {
-            if (selections[i].faceIndices !== undefined) {
-                let faces = Array.from(selections[i].faceIndices).map(
-                    index => GeometryHelpers.extractFaceData(index, mesh.geometry)
-                );
-    
-                if (faces.length !== 0) {
-                    Toolbox.highlightFacesOnObject(faces, mesh, selections[i].color);
+        // Check if annotation exists
+        if (selections[i] !== undefined) {
+            if (selections[i].visible) {
+                if (selections[i].faceIndices !== undefined) {
+                    let faces = Array.from(selections[i].faceIndices).map(
+                        index => GeometryHelpers.extractFaceData(index, mesh.geometry)
+                    );
+        
+                    if (faces.length !== 0) {
+                        Toolbox.highlightFacesOnObject(faces, mesh, selections[i].highlightColor);
+                    }
                 }
             }
         }

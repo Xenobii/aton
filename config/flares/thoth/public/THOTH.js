@@ -208,14 +208,60 @@ THOTH.redo = () => {
 Annotation Management
 ===========================================================*/
 
-THOTH.createNewAnnotation = (newAnnotationName) => {
-    if (!newAnnotationName) newAnnotationName = "Untitled Annotation";
+THOTH.createNewAnnotationParams = () => {
+    let idx = undefined;
+    
+    // Determine the index at which to place annotation
+    for (let i=0; i<THOTH.annotations.length + 1; i++) {
+        // Otherwise place new Annotation at the end of the array
+        if (THOTH.annotations[i] === undefined) {
+            idx = i + 1;
+            break;
+        };
+        // Check if annotation was removed at index i 
+        // If yes, create index there
+        if (THOTH.annotations[i].index !== i + 1) {
+            idx = i + 1;
+            break;
+        };
+    };
 
+    // Create name based on index
+    const name = `Annotation ${idx}`;
+    
+    // Create a rotating color for clarity
+    const r = parseInt(255 * Math.sin(idx * Math.PI/4)/2 + 128);
+    const g = parseInt(255 * Math.sin(idx * Math.PI/4 + 2* Math.PI/3)/2 + 128);
+    const b = parseInt(255 * Math.sin(idx * Math.PI/4 - 2* Math.PI/3)/2 + 128);
+    const color = THOTH.rgbToHex(r, g, b);
+
+    return {
+        idx :  idx,
+        name:  name,
+        color: color, 
+    };
+};
+
+THOTH.rgbToHex = (r, g, b) => {
+    componentToHex = (c) => {
+        var hex = c.toString(16);
+        return hex.length === 1 ? "0" + hex : hex;
+    }
+    return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
+};
+
+THOTH.createNewAnnotation = () => {
+    // Defined annotation index for convenience
+    const newAnnotationParams = THOTH.createNewAnnotationParams();
+
+    THOTH.log("Created new Annotation: " + newAnnotationParams.name);
+    
     // Default annotation params
     const newAnnotation = {
-        name: newAnnotationName,
+        index: newAnnotationParams.idx,
+        name: newAnnotationParams.name,
         visible: true,
-        highlightColor: "#FFFFFF",
+        highlightColor: newAnnotationParams.color,
         faceIndices: new Set(),
         description: undefined,
         numberOfFaces: 0,
@@ -225,19 +271,55 @@ THOTH.createNewAnnotation = (newAnnotationName) => {
     THOTH.FE.createNewAnnotationUI(newAnnotation);
     
     // Add to annotation array
-    THOTH.annotations.push(newAnnotation);
+    THOTH.annotations.splice(newAnnotation.index - 1, 0, newAnnotation);
 };
 
-THOTH.editAnnotationName = (annotation, newName) => {
-    // Edit annotation folder name ???
-    annotation.name = newName;
+THOTH.deleteAnnotation = (annotationParams) => {
+    THOTH.log("Removing " + annotationParams.name + " with index " + annotationParams.index);
+
+    // Find corresponding index in arrays
+    let idx = undefined;
+    for (let i=0; i<THOTH.annotations.length; i++) {
+        if (annotationParams.index === THOTH.annotations[i].index)
+        {
+            idx = i;
+            break;
+        }
+    };
+
+    // Remove buttons
+    THOTH.FE.annotationButtons[idx].dispose();
+    THOTH.FE.annotationButtons.splice(idx, 1);
+    // THOTH.FE.annotationButtons[annotationParams.index - 1] = undefined;
+    THOTH.FE.detailTabs.dispose();
+
+    // Remove from annotations array
+    THOTH.annotations.splice(idx, 1);  
+
+    // Update visuals
+    THOTH.updateVisibility();
 };
 
-THOTH.toggleVisibility = (annotation, isVisible) => {
-    // TODO: change currselection to be annotation.faceIndices
-    annotation.visible = isVisible;
+THOTH.editAnnotationName = (annotationParams) => {
+    // Find corresponding index in arrays
+    let idx = undefined;
+    for (let i=0; i<THOTH.annotations.length; i++) {
+        if (annotationParams.index === THOTH.annotations[i].index)
+        {
+            idx = i;
+            break;
+        }
+    };
+
+    // Edit buttons
+    THOTH.FE.annotationButtons[idx].title = annotationParams.name;
+
+    // annotationParams.name = newName;
+};
+
+THOTH.updateVisibility = () => {
     THOTH.Toolbox.highlightVisibleSelections(THOTH.annotations);
-}
+};
 
 THOTH.editSelection = (annotation) => {
     THOTH.FE._actState = THOTH.FE.SELACTION_EDIT;
@@ -278,20 +360,4 @@ THOTH.applyAnnotation = (annotation) => {
     
     console.log("Applied selection for", annotation.name);
     console.log(annotation.faceIndices)
-};
-
-THOTH.deleteAnnotation = (annotation) => {
-    // THOTH.FE._actState = THOTH.FE.SELACTION_STD;
-
-    // Delete folder
-    THOTH.FE.annotationFolder.removeFolder(annotation.name);
-
-    // Remove from annotation array
-    const index = THOTH.annotations.indexOf(annotation)
-    THOTH.annotations.splice(index, l);
-
-    // Update visuals
-    THOTH.Toolbox.highlightVisibleSelections();
-
-    console.log("Deleted annotation", annotation.name);
 };
