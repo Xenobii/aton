@@ -226,21 +226,13 @@ Toolbox.selectMultipleFaces = (brushSize, mesh) => {
 Visualization
 ===========================================================*/
 
-Toolbox.hex2rgb = (hex) => {
-    // Also normalize
-    const r = parseInt(hex.slice(1, 3), 16)/255;
-    const g = parseInt(hex.slice(3, 5), 16)/255;
-    const b = parseInt(hex.slice(5, 7), 16)/255;
-    return {r, g, b};
-};
-
 Toolbox.highlightFacesOnObject = (selectedFaces, mesh, color) => {
     if (!selectedFaces || selectedFaces.length === 0) return false;
     if (!mesh) mesh   = Toolbox.mainMesh;
     if (!color) color = Toolbox.highlightColor;
 
     // Convert to RGB
-    const rgbColor = Toolbox.hex2rgb(color); 
+    const rgbColor = THOTH.Helpers.hex2rgb(color);
 
     const geometry  = mesh.geometry;
     const colorAttr = geometry.attributes.color;

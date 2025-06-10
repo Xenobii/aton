@@ -17,8 +17,9 @@ THOTH.Helpers = Helpers;
 Flare setup
 ===========================================================*/
 
-THOTH.setup = () => {
+THOTH.setup = async () => {
     THOTH._bLeftMouseDown = false;
+    THOTH._bLoading = true;
     
     THOTH.realize();
 
@@ -32,10 +33,17 @@ THOTH.setup = () => {
     
     THOTH.FE.init();
     THOTH.Mat.init();
-    THOTH.Toolbox.init();
+    await THOTH.Toolbox.init();
 
-    // List all completed annotations
+    // Annotation list
     THOTH.annotations = [];
+
+    // Import Scene stuff
+    THOTH.sid = THOTH.getSceneID();
+    await THOTH.importAnnotations(THOTH.sid);
+
+    // Visualize 
+    THOTH.updateVisibility();
 };
 
 THOTH.update = () => {
@@ -80,7 +88,7 @@ THOTH._handleQueryScene = () => {
     // Process hits
     const hitsnum = THOTH._hitsScene.length;
     if (hitsnum <= 0){
-        ATON._queryDataScene = undefined;
+        THOTH._queryDataScene = undefined;
         return;
     }
 
@@ -96,8 +104,8 @@ THOTH._handleQueryScene = () => {
     if (!THOTH._queryDataScene.o.geometry.boundsTree) {
         THOTH._queryDataScene.o.geometry.computeBoundsTree();
         THOTH.log("Computed visible BVH");
-    }
-    
+    };
+
     // Normals
     // if (!THOTH._bQueryNormals) return;
     // if (!h.face) return;
@@ -233,21 +241,13 @@ THOTH.createNewAnnotationParams = () => {
     const r = parseInt(255 * Math.sin(idx * Math.PI/4)/2 + 128);
     const g = parseInt(255 * Math.sin(idx * Math.PI/4 + 2* Math.PI/3)/2 + 128);
     const b = parseInt(255 * Math.sin(idx * Math.PI/4 - 2* Math.PI/3)/2 + 128);
-    const color = THOTH.rgbToHex(r, g, b);
+    const color = THOTH.Helpers.rgb2hex(r, g, b);
 
     return {
         idx :  idx,
         name:  name,
         color: color, 
     };
-};
-
-THOTH.rgbToHex = (r, g, b) => {
-    componentToHex = (c) => {
-        var hex = c.toString(16);
-        return hex.length === 1 ? "0" + hex : hex;
-    }
-    return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
 };
 
 THOTH.createNewAnnotation = () => {
@@ -263,10 +263,9 @@ THOTH.createNewAnnotation = () => {
         visible: true,
         highlightColor: newAnnotationParams.color,
         faceIndices: new Set(),
-        description: undefined,
-        numberOfFaces: 0,
+        description: "Nothing here yes",
     };
-
+    
     // Create annotation folder 
     THOTH.FE.createNewAnnotationUI(newAnnotation);
     
@@ -321,43 +320,100 @@ THOTH.updateVisibility = () => {
     THOTH.Toolbox.highlightVisibleSelections(THOTH.annotations);
 };
 
-THOTH.editSelection = (annotation) => {
-    THOTH.FE._actState = THOTH.FE.SELACTION_EDIT;
-    THOTH.FE._tool = undefined
-    
-    THOTH.FE.uiSetAnnotatorMode();
-    
-    if (annotation.faceIndices !== undefined) {
-        annotation.faceIndices.forEach(faceIndex => {
-            THOTH.currAnnotation.faceIndices.add(faceIndex)
-        });
-    };
+THOTH.exportAnnotations = () => {
+    THOTH.log("Exporting annotations...");
+
+    let A = THOTH.annotations2Object(THOTH.annotations);
+
+    THOTH.patchScene(A, ATON.SceneHub.MODE_ADD, () => {
+        THOTH.log("Success!");
+    });
 };
 
-THOTH.applyAnnotation = (annotation) => {
-    if (THOTH.currAnnotation.faceIndices.length === 0) {
-        console.warn("There are no selected faces to ba applied");
-        THOTH.FE._actState = THOTH.FE.SELACTION_STD;
-        return;
-    }
-    
-    THOTH.FE._actState = THOTH.FE.SELACTION_STD;
-    
-    THOTH.FE.disableTools();
-    THOTH.FE.uiSetDefaultMode();
-    
-    ATON.Nav.setUserControl(true);
-    
-    // Push current selection to this annotation
-    console.log(annotation.faceIndices)
+THOTH.annotations2Object = (annotationArray) => {
+    const annotationObject = {};
+    annotationObject.annotations = {};
 
-    THOTH.currAnnotation.faceIndices.forEach(faceIndex => {
-        annotation.faceIndices.add(faceIndex)
+    for (let i=0; i<annotationArray.length; i++) {
+        const name = annotationArray[i].name;
+        const faceIndices = Array.from(annotationArray[i].faceIndices);
+
+        // Add to annotation object
+        annotationObject.annotations[name] = annotationArray[i];
+        annotationObject.annotations[name].faceIndices = faceIndices;
+    };
+    return annotationObject;
+};
+
+THOTH.patchScene = (patch, mode, onComplete) => {
+    if (patch === undefined) return;
+    if (mode === undefined) mode = ATON.SceneHub.MODE_ADD;
+
+    let sid = ATON.SceneHub.currID;
+
+    let O = {};
+    O.data = patch;
+    O.mode = mode;
+
+    O.mode = (mode === ATON.SceneHub.MODE_DEL)? "DEL" : "ADD";
+
+    let jstr = JSON.stringify(O);
+
+    $.ajax({
+        url: ATON.PATH_RESTAPI2 + "scenes/"+sid,
+        type:"PATCH",
+        data: jstr,
+        contentType:"application/json; charset=utf-8",
+        dataType:"json",
+
+        success: (r) => {
+            if (onComplete) onComplete();
+        }
     });
+};
+
+THOTH.getSceneID = (sid) => {
+    if (!sid) {
+        // Get sid directly from url
+        const path = window.location.pathname;
+        const pathArray = path.split('/');
+
+        sid = String(pathArray[2]+'/'+pathArray[3]);
+    };
+
+    return sid;
+};
+
+THOTH.importAnnotations = async (sid, onSuccess) => {
+    if (sid === undefined) return;
+
+    THOTH.log("Importing annotations from scene: "+sid);
     
-    // Clear current selection
-    THOTH.currAnnotation.faceIndices = new Set();
+    const reqpath = ATON.PATH_RESTAPI2+"scenes/"+sid;
+
+    return new Promise((resolve, reject) => {
+        THOTH.Helpers.getJSON(reqpath, (data) => {
+            // Parse JSON and apply to scene
+            THOTH.parseJSON(data);
     
-    console.log("Applied selection for", annotation.name);
-    console.log(annotation.faceIndices)
+            if (onSuccess) onSuccess();
+            resolve();
+        });
+    });
+};
+
+THOTH.parseJSON = (data) => {
+    if (data.annotations === undefined) return;
+
+    // Convert annotations object to array and parse
+    THOTH.annotations = Object.values(data.annotations);
+
+    // Iterate through the array
+    Object.keys(THOTH.annotations).forEach(i => {
+        // Convert faceIndices to Sets
+        THOTH.annotations[i].faceIndices = new Set(THOTH.annotations[i].faceIndices);
+
+        // Create annotation button for each
+        THOTH.FE.createNewAnnotationUI(THOTH.annotations[i]);
+    });
 };

@@ -163,7 +163,7 @@ FE.setupUI =() => {
     const bottomRightContainer = document.createElement('div');
     bottomRightContainer.id = 'guicanvas';
     bottomRightContainer.style.position = 'absolute';
-    bottomRightContainer.style.bottom = '100px';          
+    bottomRightContainer.style.bottom = '50px';          
     bottomRightContainer.style.right = '0px';   
     bottomRightContainer.style.zIndex = '120';
     document.body.appendChild(bottomRightContainer);
@@ -171,7 +171,7 @@ FE.setupUI =() => {
     const bottomLeftContainer = document.createElement('div');
     bottomLeftContainer.id = 'guicanvas';
     bottomLeftContainer.style.position = 'absolute';
-    bottomLeftContainer.style.bottom = '100px';          
+    bottomLeftContainer.style.bottom = '50px';          
     bottomLeftContainer.style.left = '0px';   
     bottomLeftContainer.style.zIndex = '120';
     document.body.appendChild(bottomLeftContainer);
@@ -204,8 +204,15 @@ FE.setupUI =() => {
         expanded: true,
     });
 
+    FE.exportPane = new Pane({
+        container: bottomRightContainer,
+        title: 'Export Settings',
+        expanded: true,
+    });
+
     FE.setupToolboxPane();
     FE.setupLayerManagementPane();
+    FE.setupExportPane();
 };
 
 FE.setupToolboxPane = () => {
@@ -300,10 +307,6 @@ FE.updateToolRadiusUI = () => {
     }
 };
 
-FE.updateToolModeUI = () => {
-
-};
-
 FE.setupLayerManagementPane = () => {
     const addAnnotationBtn = FE.layerManagementPane.addButton({
         title: "New Annotation",
@@ -364,5 +367,15 @@ FE.setupDetailsUI = (annotationParams) => {
     });
     FE.delete.on('click', () => {
         THOTH.deleteAnnotation(annotationParams);
+    });
+};
+
+FE.setupExportPane = () => {
+    const exportAnnotationBtn = FE.exportPane.addButton({
+        title: "Export Current Annotation",
+    });
+
+    exportAnnotationBtn.on('click', () => {
+        THOTH.exportAnnotations();
     });
 };
