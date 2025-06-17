@@ -28,7 +28,7 @@ THOTH.setup = async () => {
     else THOTH.bridge();
 
     // Init Scene
-    THOTH.Scene.init();
+    await THOTH.Scene.init();
 
     THOTH.initHistory();
     THOTH.Mat.init();
@@ -266,6 +266,8 @@ THOTH.exportAnnotations = () => {
 
     let A = THOTH.annotations2Object(THOTH.annotations);
 
+    
+    // Patch changes
     THOTH.Scene.patchScene(A, ATON.SceneHub.MODE_ADD, () => {
         THOTH.log("Success!");
     });

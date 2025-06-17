@@ -13,7 +13,7 @@ Scene.init = () => {
     Scene.sid = Scene.getSceneID();
 };
 
-Scene.initRC = () => {
+Scene.initRC = async () => {
     const wglopts = {
         antialias: true,
         alpha: true,
@@ -28,8 +28,7 @@ Scene.initRC = () => {
     Scene._raycaster.layers.set(ATON.NTYPES.SCENE);
     Scene._raycaster.firstHitOnly = true;
 
-    // Querying
-    Scene._handleQuery();
+    await Scene.prepareObject();
 };
 
 Scene._handleQuery = () => {
@@ -67,6 +66,32 @@ Scene._handleQuery = () => {
     // THOTH._queryDataScene.matrixWorld = new THREE.Matrix3().getNormalMatrix( h.object.matrixWorld );
     // THOTH._queryDataScene.n = h.face.normal.clone().applyMatrix3( THOTH._queryDataScene.matrixWorld ).normalize();
 };
+
+Scene.prepareObject = async () => {
+    // Polling
+    while (!Scene._queryData?.o) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    // Single object in annotator scene
+    Scene.mainMesh = THOTH.Scene._queryData.o;
+    
+    // Color propertied for face selection
+    Scene.mainMesh.material.vertexColors = true;
+    Scene.mainMesh.material.needsUpdate  = true;
+
+    // Initialize vertex colors if they don't exist
+    if (!Scene.mainMesh.geometry.attributes.color) {
+        THOTH.log("Initializing color");
+        
+        const colorArray = new Float32Array(Scene.mainMesh.geometry.attributes.position.count * 3);
+        colorArray.fill(THOTH.Mat.colorsThree.white); // Default white color
+
+        const colorAttr = new THREE.BufferAttribute(colorArray, 3);
+        
+        Scene.mainMesh.geometry.setAttribute('color', colorAttr);
+    }
+}
 
 Scene.getSceneID = (sid) => {
     if (!sid) {

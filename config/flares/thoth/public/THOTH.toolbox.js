@@ -12,13 +12,13 @@ Inits
 ===========================================================*/
 
 Toolbox.init = async () => {
-    // Current Selection at a given time step
-    Toolbox.currSelection = new Set();    // Track selected face ids
-
+    while (!Scene._queryData?.o) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
     // Inits
     Toolbox.initColors();
-    await Toolbox.initQuerying();
-    await Toolbox.initLasso();
+    Toolbox.initLasso();
 
     // Init selection sphere logic
     Toolbox.STD_SEL_RAD = THOTH.getSelectorRadius();
@@ -28,36 +28,10 @@ Toolbox.init = async () => {
     Toolbox.clearFaceHighlights();
 };
 
-Toolbox.initQuerying = async () => {
-    // Polling
-    while (!THOTH.Scene._queryData?.o) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-    }
-
-    // Single object in annotator scene
-    Toolbox.mainMesh = THOTH.Scene._queryData.o;
-    
-    // Color propertied for face selection
-    Toolbox.mainMesh.material.vertexColors = true;
-    Toolbox.mainMesh.material.needsUpdate  = true;
-
-    // Initialize vertex colors if they don't exist
-    if (!Toolbox.mainMesh.geometry.attributes.color) {
-        THOTH.log("Initializing color");
-        
-        const colorArray = new Float32Array(Toolbox.mainMesh.geometry.attributes.position.count * 3);
-        colorArray.fill(Toolbox.defaultColor); // Default white color
-
-        const colorAttr = new THREE.BufferAttribute(colorArray, 3);
-        
-        Toolbox.mainMesh.geometry.setAttribute('color', colorAttr);
-    }
-};
-
 Toolbox.initColors = () => {
     // Toolbox.highlightColor = THOTH.Mat.colors.green;
     Toolbox.highlightColor = THOTH.Mat.colors.red;
-    
+
     Toolbox.defaultColor   = THOTH.Mat.colorsThree.white;
     Toolbox.brushColor     = THOTH.Mat.colorsThree.green;
     Toolbox.eraserColor    = THOTH.Mat.colorsThree.orange;
@@ -88,16 +62,15 @@ Toolbox.initLassoCanvas = () => {
     Toolbox.lassoCtx = canvas.getContext('2d');
 
     Toolbox.lassoCtx.strokeStyle = 'rgba(0, 255, 0, 0.7)';
-    // Toolbox.lassoCtx.strokeStyle = THOTH.Mat.colors.green;
     Toolbox.lassoCtx.lineWidth   = 1;
     Toolbox.lassoCtx.fillStyle   = 'rgba(0, 255, 0, 0.2';
 };
 
-Toolbox.initLasso = async () => {
+Toolbox.initLasso = () => {
     // Wait for query
-    while (!THOTH.Scene._queryData?.o) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-    }
+    // while (!THOTH.Scene._queryData?.o) {
+    //     await new Promise(resolve => setTimeout(resolve, 100));
+    // }
 
     // Init canvas
     Toolbox.initLassoCanvas();
@@ -167,7 +140,7 @@ Selection Utils
 ===========================================================*/
 
 Toolbox.selectMultipleFaces = (brushSize, mesh) => {
-    if (!mesh) mesh = Toolbox.mainMesh;
+    if (!mesh) mesh = THOTH.Scene.mainMesh;
 
     let hitPoint = THOTH.Scene._queryData.p;
 
@@ -229,7 +202,7 @@ Visualization
 
 Toolbox.highlightFacesOnObject = (selectedFaces, mesh, color) => {
     if (!selectedFaces || selectedFaces.length === 0) return false;
-    if (!mesh) mesh   = Toolbox.mainMesh;
+    if (!mesh) mesh   = THOTH.Scene.mainMesh;
     if (!color) color = Toolbox.highlightColor;
 
     // Convert to RGB
@@ -272,7 +245,7 @@ Toolbox.highlightFacesOnObject = (selectedFaces, mesh, color) => {
 };
 
 Toolbox.clearFaceHighlights = (mesh) => {
-    if (!mesh) mesh = Toolbox.mainMesh;
+    if (!mesh) mesh = THOTH.Scene.mainMesh;
     if (!mesh.geometry.attributes.color) return false;
 
     const colorAttr = mesh.geometry.attributes.color;
@@ -288,7 +261,7 @@ Toolbox.clearFaceHighlights = (mesh) => {
 };
 
 Toolbox.highlightVisibleSelections = (selections, mesh) => {
-    if (!mesh) mesh = Toolbox.mainMesh;
+    if (!mesh) mesh = THOTH.Scene.mainMesh;
     if (!selections) selections = THOTH.annotations;
 
     if (mesh === undefined) return false;
@@ -327,7 +300,7 @@ Toolbox.brushTool = (currAnnotationParams, brushSize = Toolbox.brushRadius) => {
         return false;
     }
     if (!THOTH.Scene._queryData?.o) return false; // Only work when over mesh
-    const mesh = Toolbox.mainMesh;
+    const mesh = THOTH.Scene.mainMesh;
 
     // Get newly selected faces
     const newFaces = Toolbox.selectMultipleFaces(brushSize, mesh);
@@ -356,7 +329,7 @@ Toolbox.eraserTool = (currAnnotationParams, brushSize = Toolbox.brushRadius) => 
         return false;
     }
     if (!THOTH.Scene._queryData?.o) return false; // Only work when over mesh
-    const mesh = Toolbox.mainMesh;
+    const mesh = THOTH.Scene.mainMesh;
 
     // Get newly selected faces
     let newFaces = Toolbox.selectMultipleFaces(brushSize, mesh);
@@ -451,10 +424,10 @@ Toolbox.cleanupLasso = () => {
 
 Toolbox.processLassoSelection = (currAnnotationParams) => {
     if (!Toolbox.lassoState.points || Toolbox.lassoState.points.length < 3) return;
-    if (!Toolbox.mainMesh) return;
+    if (!THOTH.Scene.mainMesh) return;
 
     const lassoPoints = Toolbox.lassoState.points;
-    const mesh = Toolbox.mainMesh;
+    const mesh = THOTH.Scene.mainMesh;
     const geometry = mesh.geometry;
     const camera = THOTH._camera;
     const canvas = Toolbox.lassoCtx.canvas;
@@ -535,7 +508,7 @@ Toolbox.getLassoPixels = () => {
 
 Toolbox.lassoTool = (event) => {
     if (!event) return;
-    if (!Toolbox.mainMesh) return;
+    if (!THOTH.Scene.mainMesh) return;
     if (!Toolbox.lassoState) return;
 
     // Toolbox.updateMousePosition(event);
