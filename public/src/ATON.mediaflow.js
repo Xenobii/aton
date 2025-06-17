@@ -343,6 +343,8 @@ MediaFlow.startAudioStreaming = ()=>{
         MediaFlow._aurec.start( MediaFlow.auStreamSegmentInterval );
         console.log("Start audio streaming");
 
+        ATON.fire("MediaFlow_AudioStream", true);
+
         MediaFlow._aurec.onstart = (e) => {
             MediaFlow._bAudioStreaming = true;
             MediaFlow._bAudioRecording = true;
@@ -387,6 +389,7 @@ MediaFlow.stopAudioStreaming = ()=>{
     MediaFlow._bAudioStreaming = false;
     MediaFlow._bAudioRecording = false;
 
+    ATON.fire("MediaFlow_AudioStream", false);
     ATON.Photon.socket.emit("UAUDIOSTOP", { uid: ATON.Photon.uid });
 };
 
@@ -430,6 +433,7 @@ MediaFlow.startScreenRecording = ()=>{
         MediaFlow._vrec.start(200);
 
         MediaFlow._bScreenRec = true;
+        ATON.fire("MediaFlow_ScreenRec", true);
     })
     .catch((e)=>{
         console.log(e);
@@ -444,6 +448,7 @@ MediaFlow.stopScreenRecording = ()=>{
     MediaFlow._bScreenStream = false;
 
     console.log("Stop screen recording");
+    ATON.fire("MediaFlow_ScreenRec", false);
 };
 
 MediaFlow.startScreenStreaming = ()=>{
@@ -455,6 +460,7 @@ MediaFlow.startScreenStreaming = ()=>{
 
         MediaFlow._vrec.start(MediaFlow.vidStreamSegmentInterval);
         console.log("Start screen streaming");
+        ATON.fire("MediaFlow_ScreenStream", true);
 
         MediaFlow._vrec.onstart = (e) => {
             MediaFlow._bVideoStream  = true;
@@ -504,6 +510,7 @@ MediaFlow.stopScreenStreaming = ()=>{
 
         ATON.Photon.socket.emit("UVIDEOSTOP", { uid: ATON.Photon.uid });
     }
+    ATON.fire("MediaFlow_ScreenStream", false);
 };
 
 MediaFlow.startOrStopScreenStreaming = ()=>{
@@ -525,6 +532,7 @@ MediaFlow.startCameraStreaming = ()=>{
 
         MediaFlow._vrec.start( MediaFlow.vidStreamSegmentInterval );
         console.log("Start camera streaming");
+        ATON.fire("MediaFlow_CamStream", true);
 
         MediaFlow._vrec.onstart = (e) => {
             MediaFlow._bVideoStream = true;
@@ -574,6 +582,8 @@ MediaFlow.stopCameraStreaming = ()=>{
 
         ATON.Photon.socket.emit("UVIDEOSTOP", { uid: ATON.Photon.uid });
     }
+
+    ATON.fire("MediaFlow_CamStream", false);
 };
 
 MediaFlow.startOrStopCameraStreaming = ()=>{
