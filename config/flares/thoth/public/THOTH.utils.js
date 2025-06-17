@@ -6,10 +6,10 @@
 ===========================================================*/
 
 
-let Helpers = {};
+let Utils = {};
 
 
-Helpers.setsAreEqual = (a, b) => {
+Utils.setsAreEqual = (a, b) => {
     if (a.size !== b.size) return false;
 
     // The following is more correct but statistically overkill 
@@ -17,7 +17,7 @@ Helpers.setsAreEqual = (a, b) => {
     return true;
 };
 
-Helpers.isPointInPolygon = (point, polygon) => {
+Utils.isPointInPolygon = (point, polygon) => {
     let inside = false;
     for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
         const xi = polygon[i].x, yi = polygon[i].y;
@@ -30,7 +30,7 @@ Helpers.isPointInPolygon = (point, polygon) => {
     return inside;
 };
 
-Helpers.pointDistance = (pos1, pos2) => {
+Utils.pointDistance = (pos1, pos2) => {
     const dist = Math.sqrt(
         Math.pow(pos1.x - pos2.x, 2) + 
         Math.pow(pos1.y - pos2.y, 2)
@@ -38,7 +38,7 @@ Helpers.pointDistance = (pos1, pos2) => {
     return dist;
 };
 
-Helpers.rgb2hex = (r, g, b) => {
+Utils.rgb2hex = (r, g, b) => {
     componentToHex = (c) => {
         var hex = c.toString(16);
         return hex.length === 1 ? "0" + hex : hex;
@@ -46,7 +46,7 @@ Helpers.rgb2hex = (r, g, b) => {
     return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
 };
 
-Helpers.hex2rgb = (hex) => {
+Utils.hex2rgb = (hex) => {
     // Also normalize
     const r = parseInt(hex.slice(1, 3), 16)/255;
     const g = parseInt(hex.slice(3, 5), 16)/255;
@@ -54,7 +54,7 @@ Helpers.hex2rgb = (hex) => {
     return {r, g, b};
 };
 
-Helpers.getJSON = (jsonurl, onLoad)=>{
+Utils.getJSON = (jsonurl, onLoad)=>{
     fetch(jsonurl, {
         method: 'GET',
         headers: { 'Accept': 'application/json' },

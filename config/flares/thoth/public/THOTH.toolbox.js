@@ -30,12 +30,12 @@ Toolbox.init = async () => {
 
 Toolbox.initQuerying = async () => {
     // Polling
-    while (!THOTH._queryDataScene?.o) {
+    while (!THOTH.Scene._queryData?.o) {
         await new Promise(resolve => setTimeout(resolve, 100));
     }
 
     // Single object in annotator scene
-    Toolbox.mainMesh = THOTH._queryDataScene.o;
+    Toolbox.mainMesh = THOTH.Scene._queryData.o;
     
     // Color propertied for face selection
     Toolbox.mainMesh.material.vertexColors = true;
@@ -56,12 +56,13 @@ Toolbox.initQuerying = async () => {
 
 Toolbox.initColors = () => {
     // Toolbox.highlightColor = THOTH.Mat.colors.green;
-    Toolbox.highlightColor = '#ff0000'
-    Toolbox.defaultColor   = THOTH.Mat.colors.white;
-    Toolbox.brushColor     = THOTH.Mat.colors.green;
-    Toolbox.eraserColor    = THOTH.Mat.colors.orange;
-    Toolbox.lassoColor     = THOTH.Mat.colors.green;
-    Toolbox.lassoFillColor = THOTH.Mat.colors.green; 
+    Toolbox.highlightColor = THOTH.Mat.colors.red;
+    
+    Toolbox.defaultColor   = THOTH.Mat.colorsThree.white;
+    Toolbox.brushColor     = THOTH.Mat.colorsThree.green;
+    Toolbox.eraserColor    = THOTH.Mat.colorsThree.orange;
+    Toolbox.lassoColor     = THOTH.Mat.colorsThree.green;
+    Toolbox.lassoFillColor = THOTH.Mat.colorsThree.green; 
 };
 
 Toolbox.initLassoCanvas = () => {
@@ -80,8 +81,8 @@ Toolbox.initLassoCanvas = () => {
         zIndex: '10'
     });
 
-    canvas.width  = THOTH._renderer.domElement.width;
-    canvas.height = THOTH._renderer.domElement.height;
+    canvas.width  = THOTH.Scene._renderer.domElement.width;
+    canvas.height = THOTH.Scene._renderer.domElement.height;
 
     // Retrieve context for frawing functions
     Toolbox.lassoCtx = canvas.getContext('2d');
@@ -94,7 +95,7 @@ Toolbox.initLassoCanvas = () => {
 
 Toolbox.initLasso = async () => {
     // Wait for query
-    while (!THOTH._queryDataScene?.o) {
+    while (!THOTH.Scene._queryData?.o) {
         await new Promise(resolve => setTimeout(resolve, 100));
     }
 
@@ -122,7 +123,7 @@ Utils
 Toolbox.getMousePosition = (event) => {
     if (!Toolbox.lassoCtx) return { x: 0, y: 0 };
 
-    const rect = THOTH._renderer.domElement.getBoundingClientRect();
+    const rect = THOTH.Scene._renderer.domElement.getBoundingClientRect();
 
     return {
         x: (event.clientX - rect.left),
@@ -168,7 +169,7 @@ Selection Utils
 Toolbox.selectMultipleFaces = (brushSize, mesh) => {
     if (!mesh) mesh = Toolbox.mainMesh;
 
-    let hitPoint = THOTH._queryDataScene.p;
+    let hitPoint = THOTH.Scene._queryData.p;
 
     if (!hitPoint) return false;
 
@@ -232,7 +233,7 @@ Toolbox.highlightFacesOnObject = (selectedFaces, mesh, color) => {
     if (!color) color = Toolbox.highlightColor;
 
     // Convert to RGB
-    const rgbColor = THOTH.Helpers.hex2rgb(color);
+    const rgbColor = THOTH.Utils.hex2rgb(color);
 
     const geometry  = mesh.geometry;
     const colorAttr = geometry.attributes.color;
@@ -325,7 +326,7 @@ Toolbox.brushTool = (currAnnotationParams, brushSize = Toolbox.brushRadius) => {
         console.warn("No selected annotation");
         return false;
     }
-    if (!THOTH._queryDataScene?.o) return false; // Only work when over mesh
+    if (!THOTH.Scene._queryData?.o) return false; // Only work when over mesh
     const mesh = Toolbox.mainMesh;
 
     // Get newly selected faces
@@ -354,7 +355,7 @@ Toolbox.eraserTool = (currAnnotationParams, brushSize = Toolbox.brushRadius) => 
         console.warn("No selected annotation");
         return false;
     }
-    if (!THOTH._queryDataScene?.o) return false; // Only work when over mesh
+    if (!THOTH.Scene._queryData?.o) return false; // Only work when over mesh
     const mesh = Toolbox.mainMesh;
 
     // Get newly selected faces
@@ -411,7 +412,7 @@ Toolbox.updateLasso = (event) => {
 
     const currentPos  = Toolbox.getMousePosition(event);
     const previousPos = Toolbox.lassoState.points[Toolbox.lassoState.points.length - 1];
-    const dist = Helpers.pointDistance(currentPos, previousPos);
+    const dist = THOTH.Utils.pointDistance(currentPos, previousPos);
     
     // Reduce oversampling
     if (dist < 5) return;
@@ -493,7 +494,7 @@ Toolbox.processLassoSelection = (currAnnotationParams) => {
         const screenX = (projected.x * 0.5 + 0.5) * width;
         const screenY = (projected.y * -0.5 + 0.5) * height;
 
-        if (Helpers.isPointInPolygon({ x: screenX, y: screenY }, lassoPoints)) {
+        if (THOTH.Utils.isPointInPolygon({ x: screenX, y: screenY }, lassoPoints)) {
             selectedFaces.push(GeometryHelpers.extractFaceData(i, geometry));
         }
     }

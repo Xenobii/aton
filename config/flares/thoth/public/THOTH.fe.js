@@ -152,16 +152,24 @@ UI Setup
 
 FE.setupUI =() => {
     // Create new containers
-    const TopRightContainer = document.createElement('div');
-    TopRightContainer.id = 'guicanvas';
-    TopRightContainer.style.position = 'absolute';
-    TopRightContainer.style.top = '0px';          
-    TopRightContainer.style.right = '0px';   
-    TopRightContainer.style.zIndex = '120';
-    document.body.appendChild(TopRightContainer);
+    const topRightContainer = document.createElement('div');
+    topRightContainer.id = 'guicanvasTR';
+    topRightContainer.style.position = 'absolute';
+    topRightContainer.style.top = '0px';          
+    topRightContainer.style.right = '0px';   
+    topRightContainer.style.zIndex = '120';
+    document.body.appendChild(topRightContainer);
+
+    const topLeftContainer = document.createElement('div');
+    topLeftContainer.id = 'guicanvasTL';
+    topLeftContainer.style.position = 'absolute';
+    topLeftContainer.style.top = '0px';          
+    topLeftContainer.style.left = '0px';   
+    topLeftContainer.style.zIndex = '120';
+    document.body.appendChild(topLeftContainer);
 
     const bottomRightContainer = document.createElement('div');
-    bottomRightContainer.id = 'guicanvas';
+    bottomRightContainer.id = 'guicanvasBR';
     bottomRightContainer.style.position = 'absolute';
     bottomRightContainer.style.bottom = '50px';          
     bottomRightContainer.style.right = '0px';   
@@ -169,12 +177,21 @@ FE.setupUI =() => {
     document.body.appendChild(bottomRightContainer);
 
     const bottomLeftContainer = document.createElement('div');
-    bottomLeftContainer.id = 'guicanvas';
+    bottomLeftContainer.id = 'guicanvasBL';
     bottomLeftContainer.style.position = 'absolute';
     bottomLeftContainer.style.bottom = '50px';          
     bottomLeftContainer.style.left = '0px';   
     bottomLeftContainer.style.zIndex = '120';
     document.body.appendChild(bottomLeftContainer);
+
+    const popupContainer = document.createElement('div');
+    popupContainer.id = 'popupcanvas';
+    popupContainer.style.position = 'absolute';
+    popupContainer.style.top = '150px';
+    popupContainer.style.left = '250px';
+    popupContainer.style.zIndex = '121';
+    document.body.appendChild(popupContainer);
+    FE.popupContainer = popupContainer;
 
     // Toolbox
     FE.toolboxPane = new Pane({
@@ -185,14 +202,14 @@ FE.setupUI =() => {
 
     // Layer Management
     FE.layerManagementPane = new Pane({
-        container: TopRightContainer, 
+        container: topRightContainer, 
         title: 'Layer Management',
         expanded: true,
     });
 
     // Quick Select Layer Pane
     FE.layerSelectionPane = new Pane({
-        container: TopRightContainer,
+        container: topRightContainer,
         title: 'Annotations',
         expanded: true,
     });
@@ -338,16 +355,22 @@ FE.setupDetailsUI = (annotationParams) => {
     FE.detailTabs = FE.detailsPane.addTab({
         pages: [
             {title: "General"},
-            {title: "Advanced"},
+            {title: "Details"},
         ],
     });
 
-    // Attributes
+    // General Attributes
     FE.name    = FE.detailTabs.pages[0].addBinding(annotationParams, 'name'); 
     FE.visible = FE.detailTabs.pages[0].addBinding(annotationParams, 'visible');
     FE.color   = FE.detailTabs.pages[0].addBinding(annotationParams, 'highlightColor', {
         picker: 'inline',
         expanded: true,
+    });
+
+    // Detail Attributes
+    FE.description = FE.detailTabs.pages[1].addBinding(annotationParams, 'description', {
+        multiline: true,
+        rows: 4
     });
 
     // Buttons
@@ -366,7 +389,7 @@ FE.setupDetailsUI = (annotationParams) => {
         THOTH.updateVisibility();
     });
     FE.delete.on('click', () => {
-        THOTH.deleteAnnotation(annotationParams);
+        FE.popupConfirmDelete(annotationParams);
     });
 };
 
@@ -377,5 +400,34 @@ FE.setupExportPane = () => {
 
     exportAnnotationBtn.on('click', () => {
         THOTH.exportAnnotations();
+    });
+};
+
+FE.popupConfirmDelete = (annotationParams) => {
+    // Don't create popup if it already exists
+    if (FE.popupPane && FE.popupPane.containerElem_ !== null) return;
+
+    // Popup Setup
+    FE.popupPane = new Pane({
+        container: FE.popupContainer,
+        title: 'Confirm Deletion?',
+        expanded: true,
+    });
+
+    // FE.popupPane.addBlade()
+
+    const deleteButton = FE.popupPane.addButton({
+        title: "Confirm",
+    });
+    const cancelButton = FE.popupPane.addButton({
+        title: "Cancel"
+    });
+
+    deleteButton.on('click', () => {
+        THOTH.deleteAnnotation(annotationParams);
+        FE.popupPane.dispose();
+    });
+    cancelButton.on('click', () => {
+        FE.popupPane.dispose();
     });
 };

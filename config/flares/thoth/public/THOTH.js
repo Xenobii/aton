@@ -11,7 +11,8 @@ let THOTH = new ATON.Flare("thoth");
 THOTH.FE      = FE;
 THOTH.Mat     = Mat;
 THOTH.Toolbox = Toolbox;
-THOTH.Helpers = Helpers;
+THOTH.Utils   = Utils;
+THOTH.Scene   = Scene;
 
 /* 
 Flare setup
@@ -20,100 +21,40 @@ Flare setup
 THOTH.setup = async () => {
     THOTH._bLeftMouseDown = false;
     THOTH._bLoading = true;
-    
-    THOTH.realize();
 
-    // Bridge gaps between ATON and THOTH
-    THOTH.ATONISREAL = false;
+    // ATON Overhead
+    THOTH.ATONISREAL = true;
     if (THOTH.ATONISREAL) THOTH.ATON2THOTH();
     else THOTH.bridge();
 
-    // THOTH.initEventListeners();
+    // Init Scene
+    THOTH.Scene.init();
+
     THOTH.initHistory();
-    
-    THOTH.FE.init();
     THOTH.Mat.init();
+    THOTH.FE.init();
     await THOTH.Toolbox.init();
 
     // Annotation list
     THOTH.annotations = [];
 
-    // Import Scene stuff
-    THOTH.sid = THOTH.getSceneID();
+    THOTH.sid = THOTH.Scene.sid;
     await THOTH.importAnnotations(THOTH.sid);
-
-    // Visualize 
     THOTH.updateVisibility();
-};
+}
 
 THOTH.update = () => {
-    // Update querying
-    if (FE.ATONISREAL) {
-        THOTH._queryDataScene = ATON._queryDataScene;
+    if (THOTH.ATONISREAL) {
+        THOTH.Scene._queryData = ATON._queryDataScene;
     }
     else {
-        THOTH._handleQueryScene();
+        THOTH.Scene._handleQuery();
     }
-};
+}
 
 /* 
 Ralize
 ===========================================================*/
-
-THOTH.realize = () => {
-    const wglopts = {
-        atnialias: true,
-        alpha: true,
-    };
-
-    // Renderer
-    THOTH._renderer = new THREE.WebGLRenderer(wglopts);
-    THOTH._renderer.setSize(window.innerWidth, window.innerHeight);
-
-    // Raycaster
-    THOTH._rcScene = new THREE.Raycaster();
-    THOTH._rcScene.layers.set(ATON.NTYPES.SCENE);
-    THOTH._rcScene.firstHitOnly = true;
-
-    // Querying
-    THOTH._handleQueryScene();
-};
-
-THOTH._handleQueryScene = () => {
-    THOTH._hitsScene = [];
-    
-    THOTH._rcScene.setFromCamera(ATON._screenPointerCoords, ATON.Nav._camera);
-    THOTH._rcScene.intersectObjects(ATON._mainRoot.children, true, THOTH._hitsScene);
-
-    // Process hits
-    const hitsnum = THOTH._hitsScene.length;
-    if (hitsnum <= 0){
-        THOTH._queryDataScene = undefined;
-        return;
-    }
-
-    const h = THOTH._hitsScene[0];
-    
-    THOTH._queryDataScene = {};
-    THOTH._queryDataScene.p  = h.point;
-    THOTH._queryDataScene.d  = h.distance;
-    THOTH._queryDataScene.o  = h.object;
-    THOTH._queryDataScene.uv = h.uv;
-
-    // Compute boundsTree if not computed
-    if (!THOTH._queryDataScene.o.geometry.boundsTree) {
-        THOTH._queryDataScene.o.geometry.computeBoundsTree();
-        THOTH.log("Computed visible BVH");
-    };
-
-    // Normals
-    // if (!THOTH._bQueryNormals) return;
-    // if (!h.face) return;
-    // if (!h.face.normal) return;
-
-    // THOTH._queryDataScene.matrixWorld = new THREE.Matrix3().getNormalMatrix( h.object.matrixWorld );
-    // THOTH._queryDataScene.n = h.face.normal.clone().applyMatrix3( THOTH._queryDataScene.matrixWorld ).normalize();
-};
 
 THOTH.bridge = () => {
     // Placeholder function to move modules from ATON to THOTH
@@ -128,11 +69,11 @@ THOTH.bridge = () => {
 THOTH.ATON2THOTH = () => {
     THOTH.log("Transfering functionalities from ATON");
 
-    THOTH._renderer = ATON._renderer;
-    THOTH._rcScene  = ATON._rcScene;
+    THOTH.Scene._renderer = ATON._renderer;
+    THOTH.Scene._rcScene  = ATON._rcScene;
     THOTH._camera   = ATON.Nav._camera;
 
-    THOTH._queryDataScene = ATON._queryDataScene;
+    THOTH.Scene._queryData = ATON._queryDataScene;
     
     THOTH._mSelectorSphere = ATON.SUI._mSelectorSphere;
     
@@ -181,7 +122,7 @@ THOTH.recordState = () => {
 
     if (lastSelection === undefined) lastSelection = []; 
 
-    if (THOTH.Helpers.setsAreEqual(lastSelection, THOTH.currAnnotation.faceIndices)) {
+    if (THOTH.Utils.setsAreEqual(lastSelection, THOTH.currAnnotation.faceIndices)) {
         return;
     }
 
@@ -241,7 +182,7 @@ THOTH.createNewAnnotationParams = () => {
     const r = parseInt(255 * Math.sin(idx * Math.PI/4)/2 + 128);
     const g = parseInt(255 * Math.sin(idx * Math.PI/4 + 2* Math.PI/3)/2 + 128);
     const b = parseInt(255 * Math.sin(idx * Math.PI/4 - 2* Math.PI/3)/2 + 128);
-    const color = THOTH.Helpers.rgb2hex(r, g, b);
+    const color = THOTH.Utils.rgb2hex(r, g, b);
 
     return {
         idx :  idx,
@@ -325,7 +266,7 @@ THOTH.exportAnnotations = () => {
 
     let A = THOTH.annotations2Object(THOTH.annotations);
 
-    THOTH.patchScene(A, ATON.SceneHub.MODE_ADD, () => {
+    THOTH.Scene.patchScene(A, ATON.SceneHub.MODE_ADD, () => {
         THOTH.log("Success!");
     });
 };
@@ -345,45 +286,6 @@ THOTH.annotations2Object = (annotationArray) => {
     return annotationObject;
 };
 
-THOTH.patchScene = (patch, mode, onComplete) => {
-    if (patch === undefined) return;
-    if (mode === undefined) mode = ATON.SceneHub.MODE_ADD;
-
-    let sid = ATON.SceneHub.currID;
-
-    let O = {};
-    O.data = patch;
-    O.mode = mode;
-
-    O.mode = (mode === ATON.SceneHub.MODE_DEL)? "DEL" : "ADD";
-
-    let jstr = JSON.stringify(O);
-
-    $.ajax({
-        url: ATON.PATH_RESTAPI2 + "scenes/"+sid,
-        type:"PATCH",
-        data: jstr,
-        contentType:"application/json; charset=utf-8",
-        dataType:"json",
-
-        success: (r) => {
-            if (onComplete) onComplete();
-        }
-    });
-};
-
-THOTH.getSceneID = (sid) => {
-    if (!sid) {
-        // Get sid directly from url
-        const path = window.location.pathname;
-        const pathArray = path.split('/');
-
-        sid = String(pathArray[2]+'/'+pathArray[3]);
-    };
-
-    return sid;
-};
-
 THOTH.importAnnotations = async (sid, onSuccess) => {
     if (sid === undefined) return;
 
@@ -392,7 +294,7 @@ THOTH.importAnnotations = async (sid, onSuccess) => {
     const reqpath = ATON.PATH_RESTAPI2+"scenes/"+sid;
 
     return new Promise((resolve, reject) => {
-        THOTH.Helpers.getJSON(reqpath, (data) => {
+        THOTH.Utils.getJSON(reqpath, (data) => {
             // Parse JSON and apply to scene
             THOTH.parseJSON(data);
     
