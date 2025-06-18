@@ -8,6 +8,7 @@ author: steliosalvanos@gmail.com
 
 let THOTH = new ATON.Flare("thoth");
 
+THOTH.UI      = UI;
 THOTH.FE      = FE;
 THOTH.Mat     = Mat;
 THOTH.Toolbox = Toolbox;
@@ -321,3 +322,7 @@ THOTH.parseJSON = (data) => {
         THOTH.FE.createNewAnnotationUI(THOTH.annotations[i]);
     });
 };
+
+THOTH.parseDescription = (annotationParams) => {
+    
+}

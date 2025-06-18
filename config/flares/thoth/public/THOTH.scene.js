@@ -32,6 +32,8 @@ Scene.initRC = async () => {
 };
 
 Scene._handleQuery = () => {
+    if (THOTH._bPauseQuery) return;
+    
     Scene._hits = [];
     
     Scene._raycaster.setFromCamera(ATON._screenPointerCoords, ATON.Nav._camera);
