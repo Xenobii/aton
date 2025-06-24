@@ -1548,7 +1548,10 @@ ATON.removeNodeResourceHanlder = (id)=>{
 ATON.initGraphs = ()=>{
     // Global root
     ATON._mainRoot = new THREE.Scene();
-    ATON._mainRoot.background = new THREE.Color( 0.7,0.7,0.7 );
+    // document.body.style.background = 'linear-gradient(to bottom, #265D72, #B37C8B)';
+    // document.body.style.background = 'linear-gradient(to bottom, #B37C8B, #B3C6CE)';
+    document.body.style.background = 'linear-gradient(to bottom, #B3C6EE, #D3ACBB)';
+    // ATON._mainRoot.background = new THREE.Color( 0.0,1,0.0 );
 
     // Main scene-graph
     ATON._rootVisibleGlobal = new THREE.Scene(); // new THREE.Group();

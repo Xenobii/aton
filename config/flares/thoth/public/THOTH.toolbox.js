@@ -433,18 +433,21 @@ Toolbox.processLassoSelection = (currAnnotationParams) => {
     const canvas = Toolbox.lassoCtx.canvas;
     const width = canvas.width;
     const height = canvas.height;
-
+    const dpr      = window.devicePixelRatio || 1;
     const positionAttr = geometry.attributes.position;
     const indexAttr = geometry.index;
     const faceCount = indexAttr ? indexAttr.count / 3 : positionAttr.count / 9;
 
     const selectedFaces = [];
-
+    
     const tempV1 = new THREE.Vector3();
     const tempV2 = new THREE.Vector3();
     const tempV3 = new THREE.Vector3();
     const centroid = new THREE.Vector3();
+    const projected = new THREE.Vector3();
 
+    // camera.updateMatrixWorld();
+    // camera.updateProjectionMatrix();
     for (let i = 0; i < faceCount; i++) {
         let a, b, c;
         if (indexAttr) {
@@ -462,12 +465,14 @@ Toolbox.processLassoSelection = (currAnnotationParams) => {
         tempV3.fromBufferAttribute(positionAttr, c);
 
         centroid.copy(tempV1).add(tempV2).add(tempV3).divideScalar(3);
+        mesh.localToWorld(centroid);
 
-        const projected = centroid.clone().project(camera);
-        const screenX = (projected.x * 0.5 + 0.5) * width;
-        const screenY = (projected.y * -0.5 + 0.5) * height;
+        projected.copy(centroid).project(camera);
+        const screenX = (projected.x + 1) / 2 * width / dpr;
+        const screenY = (-projected.y + 1) / 2 * height / dpr;
 
-        if (THOTH.Utils.isPointInPolygon({ x: screenX, y: screenY }, lassoPoints)) {
+        const inside = THOTH.Utils.isPointInPolygon({x: screenX, y: screenY}, lassoPoints);
+        if (inside) {
             selectedFaces.push(GeometryHelpers.extractFaceData(i, geometry));
         }
     }
@@ -480,7 +485,7 @@ Toolbox.processLassoSelection = (currAnnotationParams) => {
     if (!newUniqueFaces.length) return false;
 
     const newUniqueFacesFiltered = GeometryHelpers.visibleFaceFiltering(newUniqueFaces, mesh);
-    newUniqueFacesFiltered.forEach(face => {
+    selectedFaces.forEach(face => {
         currAnnotationParams.faceIndices.add(face.index);
     });
 
